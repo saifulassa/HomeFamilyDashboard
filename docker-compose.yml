@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    container_name: tomo-family-hub
+    ports:
+      - "127.0.0.1:3002:3001"
+    volumes:
+      - family_data:/app/data
+    environment:
+      - TZ=Asia/Jakarta
+    restart: unless-stopped
+
+volumes:
+  family_data:
