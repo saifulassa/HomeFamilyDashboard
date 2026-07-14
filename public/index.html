@@ -12,14 +12,10 @@
       theme: {
         extend: {
           colors: {
-            primary: '#1f6feb',
-            success: '#3fb950',
-            danger: '#f85149',
-            canvas: 'var(--color-canvas)',
-            card: 'var(--color-card)',
-            border: 'var(--color-border)',
-            text: 'var(--color-text)',
-            muted: 'var(--color-muted)',
+            primary: '#1f6feb', success: '#3fb950', danger: '#f85149',
+            warning: '#d29922', purple: '#bc8cff',
+            canvas: 'var(--color-canvas)', card: 'var(--color-card)',
+            border: 'var(--color-border)', text: 'var(--color-text)', muted: 'var(--color-muted)',
           }
         }
       }
@@ -27,260 +23,234 @@
   </script>
   <style>
     :root {
-      --color-canvas: #f8f9fa;
-      --color-card: #ffffff;
-      --color-border: #dee2e6;
-      --color-text: #212529;
-      --color-muted: #6c757d;
-      --color-header-bg: #ffffff;
-      --color-card-hover: #f1f3f5;
-      --color-clock-bg: #e9ecef;
-      --color-toggle-bg: #e9ecef;
-      --color-toggle-icon: #495057;
+      --color-canvas: #f8f9fa; --color-card: #ffffff; --color-border: #dee2e6;
+      --color-text: #212529; --color-muted: #6c757d;
+      --color-header-bg: #ffffff; --color-card-hover: #f1f3f5;
+      --color-clock-bg: #e9ecef; --color-toggle-bg: #e9ecef; --color-toggle-icon: #495057;
       --clock-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
-
     [data-theme="dark"] {
-      --color-canvas: #0d1117;
-      --color-card: #161b22;
-      --color-border: #30363d;
-      --color-text: #c9d1d9;
-      --color-muted: #8b949e;
-      --color-header-bg: #161b22;
-      --color-card-hover: #1c2128;
-      --color-clock-bg: #0d1117;
-      --color-toggle-bg: #21262d;
-      --color-toggle-icon: #8b949e;
+      --color-canvas: #0d1117; --color-card: #161b22; --color-border: #30363d;
+      --color-text: #c9d1d9; --color-muted: #8b949e;
+      --color-header-bg: #161b22; --color-card-hover: #1c2128;
+      --color-clock-bg: #0d1117; --color-toggle-bg: #21262d; --color-toggle-icon: #8b949e;
       --clock-shadow: none;
     }
-
-    body {
-      background: var(--color-canvas);
-      color: var(--color-text);
-      transition: background .3s, color .3s;
-      min-height: 100vh;
-    }
-
-    .card {
-      background: var(--color-card);
-      border: 1px solid var(--color-border);
-      border-radius: 10px;
-      padding: 1.25rem;
-      transition: background .2s, border-color .2s, transform .15s;
-    }
-    .card:hover {
-      background: var(--color-card-hover);
-      border-color: var(--color-border);
-      transform: translateY(-2px);
-    }
-
-    .header-bg {
-      background: var(--color-header-bg);
-      border-bottom: 1px solid var(--color-border);
-      transition: background .3s;
-    }
-
-    .clock-bg {
-      background: var(--color-clock-bg);
-      box-shadow: var(--clock-shadow);
-    }
-
-    .toggle-btn {
-      background: var(--color-toggle-bg);
-      color: var(--color-toggle-icon);
-      border: 1px solid var(--color-border);
-      transition: background .2s;
-    }
-    .toggle-btn:hover {
-      background: var(--color-border);
-    }
-
-    .module-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.1rem;
-    }
-
-    .grid-cards {
-      display: grid;
-      grid-template-columns: repeat(1, 1fr);
-      gap: 1rem;
-    }
-    @media (min-width: 768px) {
-      .grid-cards { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (min-width: 1024px) {
-      .grid-cards { grid-template-columns: repeat(4, 1fr); }
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--color-canvas); color: var(--color-text); transition: background .3s, color .3s; min-height: 100vh; }
+    .header-bg { background: var(--color-header-bg); border-bottom: 1px solid var(--color-border); }
+    .clock-bg { background: var(--color-clock-bg); box-shadow: var(--clock-shadow); }
+    .toggle-btn { background: var(--color-toggle-bg); color: var(--color-toggle-icon); border: 1px solid var(--color-border); }
+    .toggle-btn:hover { background: var(--color-border); }
+    .card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: 10px; padding: 1rem; transition: background .2s, border-color .2s, transform .15s; }
+    .card-hover:hover { background: var(--color-card-hover); border-color: var(--color-border); transform: translateY(-2px); cursor: pointer; }
+    .badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 999px; font-size: .7rem; font-weight: 600; }
+    .skeleton { background: var(--color-border); border-radius: 6px; animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: .3 } 50% { opacity: .6 } }
+    .grid-dash { display: grid; grid-template-columns: 1fr; gap: .75rem; }
+    @media (min-width: 768px) { .grid-dash { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1024px) { .grid-dash { grid-template-columns: repeat(3, 1fr); } }
+    .sect-label { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); margin-bottom: .25rem; }
   </style>
 </head>
 <body>
-
-  <!-- Header -->
   <header class="header-bg sticky top-0 z-10">
     <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm">T</div>
         <span class="font-semibold hidden sm:inline">Tomo Family Hub</span>
+        <span class="badge bg-primary/20 text-primary text-[.6rem] ml-1" id="healthBadge"><i class="fas fa-circle text-[.4rem] mr-1"></i>live</span>
       </div>
       <div class="flex items-center gap-4">
         <div class="clock-bg px-3 py-1.5 rounded-lg font-mono text-sm tabular-nums" id="clock">--:--:--</div>
-        <button id="themeToggle" class="toggle-btn w-8 h-8 rounded-lg flex items-center justify-center text-sm" title="Ganti tema">
+        <button id="themeToggle" class="toggle-btn w-8 h-8 rounded-lg flex items-center justify-center text-sm">
           <i class="fas fa-moon" id="themeIcon"></i>
         </button>
       </div>
     </div>
   </header>
 
-  <!-- Main -->
   <main class="max-w-6xl mx-auto px-4 py-6">
     <!-- Greeting -->
-    <div class="mb-6">
-      <h2 class="text-lg font-semibold" id="greeting">Selamat datang</h2>
+    <div class="mb-5">
+      <h2 class="text-lg font-semibold" id="greeting"></h2>
       <p class="text-sm text-muted" id="dateDisplay"></p>
     </div>
 
-    <!-- Module Grid -->
-    <div class="grid-cards" id="modules">
-      <!-- Cards injected by JS -->
-    </div>
+    <!-- Dashboard grid -->
+    <div class="grid-dash" id="dashGrid"></div>
   </main>
 
-  <!-- Footer -->
-  <footer class="text-center text-xs text-muted pb-6">
-    Tomo Family Hub &mdash; Local Network Only
-  </footer>
+  <footer class="text-center text-xs text-muted pb-6">Tomo Family Hub &mdash; Local Network Only</footer>
 
   <script>
-    // --- Module definitions ---
-    const MODULES = [
-      { id: 'agenda',   label: 'Agenda',     icon: 'fa-calendar-days',  color: '#1f6feb', desc: 'Jadwal keluarga 4 hari ke depan' },
-      { id: 'checklist',label: 'Checklist',  icon: 'fa-list-check',    color: '#3fb950', desc: 'Daftar tugas & pekerjaan rumah' },
-      { id: 'stock',    label: 'Stok',       icon: 'fa-boxes-stacked', color: '#d29922', desc: 'Stok dapur & belanja bulanan' },
-      { id: 'memo',     label: 'Memo',       icon: 'fa-sticky-note',   color: '#db6d28', desc: 'Catatan cepat keluarga' },
-      { id: 'health',   label: 'Kesehatan',  icon: 'fa-heart-pulse',   color: '#f85149', desc: 'Tekanan darah, berat badan, olahraga' },
-      { id: 'habits',   label: 'Kebiasaan',  icon: 'fa-check-circle', color: '#bc8cff', desc: 'Tracker kebiasaan harian' },
-    ]
+    // ── Helpers ──────────────────────────────────────────────
+    const pad = n => String(n).padStart(2, '0')
 
-    // --- Render cards ---
-    function renderCards() {
-      const container = document.getElementById('modules')
-      container.innerHTML = MODULES.map(m => `
-        <div class="card cursor-pointer" data-module="${m.id}">
-          <div class="flex items-start gap-3">
-            <div class="module-icon" style="background:${m.color}20;color:${m.color}">
-              <i class="fas ${m.icon}"></i>
-            </div>
-            <div class="flex-1 min-w-0">
-              <h3 class="font-semibold text-sm">${m.label}</h3>
-              <p class="text-xs text-muted mt-0.5">${m.desc}</p>
-            </div>
-            <i class="fas fa-chevron-right text-muted text-xs mt-1.5"></i>
-          </div>
-        </div>
-      `).join('')
-    }
-    renderCards()
-
-    // --- Theme ---
-    const STORAGE_KEY = 'tomo-theme'
-
-    function getDefaultTheme() {
-      const hour = new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta', hour: '2-digit', hour12: false })
-      const h = parseInt(hour, 10)
-      return (h >= 18 || h < 6) ? 'dark' : 'light'
+    function wib() {
+      const n = new Date()
+      return new Date(n.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
     }
 
-    function setTheme(theme, persist = true) {
-      document.documentElement.setAttribute('data-theme', theme)
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
-      const icon = document.getElementById('themeIcon')
-      icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon'
-      if (persist) localStorage.setItem(STORAGE_KEY, theme)
+    // ── Theme ────────────────────────────────────────────────
+    const KEY = 'tomo-theme'
+    function getAutoTheme() { const h = wib().getHours(); return (h >= 18 || h < 6) ? 'dark' : 'light' }
+    function setTheme(t, p) {
+      document.documentElement.setAttribute('data-theme', t)
+      document.documentElement.classList.toggle('dark', t === 'dark')
+      document.getElementById('themeIcon').className = t === 'dark' ? 'fas fa-sun' : 'fas fa-moon'
+      if (p !== false) localStorage.setItem(KEY, t)
     }
-
-    function toggleTheme() {
-      const current = document.documentElement.getAttribute('data-theme')
-      setTheme(current === 'dark' ? 'light' : 'dark')
+    const saved = localStorage.getItem(KEY)
+    setTheme(saved || getAutoTheme(), saved !== null)
+    document.getElementById('themeToggle').onclick = () => {
+      const cur = document.documentElement.getAttribute('data-theme')
+      setTheme(cur === 'dark' ? 'light' : 'dark')
     }
+    setInterval(() => { if (localStorage.getItem(KEY) === null) setTheme(getAutoTheme(), false) }, 60000)
 
-    // Init theme: saved preference > auto
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      setTheme(saved)
-    } else {
-      setTheme(getDefaultTheme(), false)
-    }
-
-    // Auto-switch at 18:00 / 06:00
-    function scheduleAutoTheme() {
-      const now = new Date()
-      const wibParts = now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).split(':')
-      const currentSec = parseInt(wibParts[0], 10) * 3600 + parseInt(wibParts[1], 10) * 60 + parseInt(wibParts[2], 10)
-
-      const saved = localStorage.getItem(STORAGE_KEY)
-      const useAuto = saved === null
-
-      if (useAuto) {
-        setTheme(getDefaultTheme(), false)
-      }
-
-      // Check every minute
-      setInterval(() => {
-        if (localStorage.getItem(STORAGE_KEY) === null) {
-          setTheme(getDefaultTheme(), false)
-        }
-      }, 60000)
-    }
-    scheduleAutoTheme()
-
-    document.getElementById('themeToggle').addEventListener('click', toggleTheme)
-
-    // --- Clock ---
-    function pad(n) { return String(n).padStart(2, '0') }
-
-    function updateClock() {
-      const now = new Date()
-      const wib = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
-      document.getElementById('clock').textContent =
-        `${pad(wib.getHours())}:${pad(wib.getMinutes())}:${pad(wib.getSeconds())}`
-
+    // ── Clock ────────────────────────────────────────────────
+    function tick() {
+      const n = wib()
       const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']
       const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
-      document.getElementById('dateDisplay').textContent =
-        `${days[wib.getDay()]}, ${wib.getDate()} ${months[wib.getMonth()]} ${wib.getFullYear()}`
-
-      const h = wib.getHours()
-      let greet = 'Selamat malam'
-      if (h >= 4 && h < 11) greet = 'Selamat pagi'
-      else if (h >= 11 && h < 15) greet = 'Selamat siang'
-      else if (h >= 15 && h < 18) greet = 'Selamat sore'
-      document.getElementById('greeting').textContent = `👋 ${greet}`
+      document.getElementById('clock').textContent = `${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`
+      document.getElementById('dateDisplay').textContent = `${days[n.getDay()]}, ${n.getDate()} ${months[n.getMonth()]} ${n.getFullYear()}`
+      const h = n.getHours()
+      let g = 'Selamat malam'
+      if (h >= 4 && h < 11) g = 'Selamat pagi'
+      else if (h >= 11 && h < 15) g = 'Selamat siang'
+      else if (h >= 15 && h < 18) g = 'Selamat sore'
+      document.getElementById('greeting').textContent = `👋 ${g}`
     }
-    updateClock()
-    setInterval(updateClock, 1000)
+    tick(); setInterval(tick, 1000)
 
-    // --- Card click (placeholder) ---
-    document.getElementById('modules').addEventListener('click', (e) => {
-      const card = e.target.closest('.card')
-      if (card) {
-        const module = card.dataset.module
-        const label = MODULES.find(m => m.id === module)?.label || module
-        if (module === 'agenda') { window.location.href = '/agenda.html'; return }
-        if (module === 'checklist') { window.location.href = '/checklist.html'; return }
-        if (module === 'stock') { window.location.href = '/stock.html'; return }
-        if (module === 'memo') { window.location.href = '/memo.html'; return }
-        if (module === 'health') { window.location.href = '/health.html'; return }
-        alert(`🔧 ${label} — coming soon di phase selanjutnya`)
+    // ── Dashboard ────────────────────────────────────────────
+    const GRID = document.getElementById('dashGrid')
+
+    function skeleton(n) {
+      return `<div class="card">` +
+        Array.from({length:n}, (_,i) =>
+          `<div class="skeleton" style="height:${[18,12,32][i]||12}px;width:${[60,80,100][i]}%;margin-top:${i?8:0}px"></div>`
+        ).join('') +
+      `</div>`
+    }
+
+    // Show skeletons on load
+    GRID.innerHTML = Array(3).fill(0).map(() => skeleton(3)).join('')
+
+    function fmtDate(s) {
+      if (!s) return '—'
+      const y = s.slice(0,4), m = parseInt(s.slice(4,6),10), d = parseInt(s.slice(6,8),10)
+      const parts = s.slice(8)
+      const hh = parts.slice(0,2), mm = parts.slice(2,4)
+      return `${d}/${m}/${y} ${hh}:${mm}`
+    }
+
+    function fmtDateStr(s) {
+      if (!s) return '—'
+      const d = s.split('T')[0] || s
+      return d
+    }
+
+    function card(icon, label, color, body, href) {
+      const bg = `${color}15`
+      return `<div class="card card-hover" data-href="${href}">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style="background:${bg};color:${color}"><i class="fas ${icon}"></i></div>
+          <span class="font-semibold text-sm">${label}</span>
+          <i class="fas fa-chevron-right text-muted text-[.6rem] ml-auto"></i>
+        </div>
+        <div class="text-xs text-muted leading-relaxed">${body}</div>
+      </div>`
+    }
+
+    function val(v, unit) {
+      return v != null ? `<span class="font-semibold text-text">${v}</span>${unit ? ` <span class="text-muted">${unit}</span>` : ''}` : '—'
+    }
+
+    function cardBg(c) { return { memo:'#db6d28', stock:'#d29922', checklist:'#3fb950', health:'#f85149', events:'#1f6feb', backup:'#bc8cff', agenda:'#1f6feb' }[c] || '#1f6feb' }
+
+    function render(d) {
+      const memo = d.memo
+      const stock = d.stock
+      const checklist = d.checklist
+      const health = d.health
+      const events = d.events
+      const backup = d.backup
+
+      const memoBody = memo.total > 0
+        ? `<div class="sect-label">${memo.total} memo</div>` +
+          memo.latest.map(m => `<div class="truncate">${m.content.slice(0,50)}</div>`).join('')
+        : `<span class="text-muted">Belum ada memo</span>`
+
+      const lowList = stock.low > 0
+        ? stock.lowItems.map(s => `<div class="truncate"><span class="text-danger font-semibold">${s.name}</span> <span class="text-muted">(${s.current_qty} ${s.unit||'pcs'})</span></div>`).join('')
+        : null
+
+      const stockBody = `<div class="flex gap-3 mb-1">
+        <div><span class="sect-label">Total</span><div class="text-lg font-bold text-text">${stock.total}</div></div>
+        <div><span class="sect-label">Kategori</span><div class="text-lg font-bold text-text">${stock.categories}</div></div>
+        ${stock.low > 0 ? `<div><span class="sect-label">Hampir habis</span><div class="text-lg font-bold text-danger">${stock.low}</div></div>` : ''}
+      </div>${lowList ? `<div class="mt-1">${lowList}</div>` : `<span class="text-success text-[.65rem]"><i class="fas fa-check-circle mr-0.5"></i>Semua stok aman</span>`}`
+
+      const doneCount = checklist.reduce((s,c) => s + c.completed, 0)
+      const totalItems = checklist.reduce((s,c) => s + c.total, 0)
+      const pct = totalItems > 0 ? Math.round(doneCount/totalItems*100) : 0
+      const checklistBody = `<div class="flex items-center gap-2 mb-1">
+        <div class="text-lg font-bold text-text">${doneCount}/${totalItems}</div>
+        <div class="badge text-[.6rem]" style="background:${pct>=80?'#3fb950':pct>0?'#d29922':'var(--color-border)'}20;color:${pct>=80?'#3fb950':pct>0?'#d29922':'var(--color-muted)'}">${pct}%</div>
+      </div><div class="h-1.5 rounded-full bg-border overflow-hidden"><div class="h-full rounded-full transition-all" style="width:${pct}%;background:${pct>=80?'#3fb950':pct>0?'#d29922':'var(--color-border)'}"></div></div>`
+
+      const healthBody = health.length > 0
+        ? health.map(p =>
+            `<div class="flex justify-between"><span>${p.role || p.name}</span><span>${p.latestWeight ? `${p.latestWeight.value} kg` : '—'}</span></div>`
+          ).join('')
+        : `<span class="text-muted">Belum ada profil</span>`
+
+      const eventsBody = events.total > 0
+        ? events.upcoming.map(e => `<div class="flex justify-between"><span class="truncate">${e.title}</span><span class="text-muted text-[.65rem]">${e.event_date} ${e.time||''}</span></div>`).join('')
+        : `<span class="text-muted">Tidak ada acara 7 hari ke depan</span>`
+
+      const backupBody = backup.lastBackup
+        ? `<div class="flex justify-between"><span>Terakhir</span><span class="text-muted">${fmtDate(backup.lastBackup)}</span></div>
+           <div class="flex justify-between"><span>Total backup</span><span class="font-semibold text-text">${backup.count}</span></div>`
+        : `<span class="text-muted">Belum ada backup</span>`
+
+      GRID.innerHTML = [
+        card('fa-sticky-note', 'Memo', cardBg('memo'), memoBody, '/memo.html'),
+        card('fa-boxes-stacked', 'Stok', cardBg('stock'), stockBody, '/stock.html'),
+        card('fa-list-check', 'Checklist', cardBg('checklist'), checklistBody, '/checklist.html'),
+        card('fa-heart-pulse', 'Kesehatan', cardBg('health'), healthBody, '/health.html'),
+        card('fa-calendar-days', 'Acara', cardBg('events'), eventsBody, '/agenda.html'),
+        card('fa-database', 'Backup', cardBg('backup'), backupBody, null),
+      ].join('')
+    }
+
+    async function load() {
+      try {
+        const res = await fetch('/api/dashboard')
+        if (!res.ok) throw new Error(res.statusText)
+        const json = await res.json()
+        render(json)
+        document.getElementById('healthBadge').innerHTML = '<i class="fas fa-circle text-[.4rem] text-success mr-1"></i>live'
+      } catch {
+        GRID.innerHTML = `<div class="card col-span-full text-center py-8">
+          <i class="fas fa-exclamation-triangle text-danger text-2xl mb-2"></i>
+          <div class="text-muted text-sm">Gagal memuat dashboard</div>
+          <button onclick="load()" class="mt-2 text-xs text-primary underline">Coba lagi</button>
+        </div>`
+        document.getElementById('healthBadge').innerHTML = '<i class="fas fa-circle text-[.4rem] text-danger mr-1"></i>error'
       }
+    }
+
+    load()
+    setInterval(load, 30000)
+
+    // ── Card click -> navigate ──────────────────────────────
+    GRID.addEventListener('click', e => {
+      const card = e.target.closest('.card-hover')
+      if (card && card.dataset.href) window.location.href = card.dataset.href
     })
   </script>
 </body>

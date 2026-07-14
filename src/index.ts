@@ -465,6 +465,77 @@ const app = new Elysia()
     return { success: true }
   })
 
+  // ── Dashboard summary ──────────────────────────────────────
+  .get('/api/dashboard', () => {
+    const today = new Date().toISOString().split('T')[0]
+
+    // Memos: total + 3 latest
+    const allMemos = db.query('SELECT * FROM memos ORDER BY is_pinned DESC, created_at DESC').all() as any[]
+    const memoSummary = { total: allMemos.length, latest: allMemos.slice(0, 3) }
+
+    // Stock: total, hampir habis (qty <= min_threshold), total nilai (asumsikan qty*qty)
+    const stockItems = db.query('SELECT * FROM stock_items ORDER BY category, name').all() as any[]
+    const lowStock = stockItems.filter((s: any) => s.current_qty <= s.min_threshold)
+    const stockSummary = {
+      total: stockItems.length,
+      low: lowStock.length,
+      lowItems: lowStock.slice(0, 5),
+      categories: [...new Set(stockItems.map((s: any) => s.category))].length,
+    }
+
+    // Checklists: count + completion progress
+    const checklists = db.query('SELECT * FROM checklists ORDER BY sort_order ASC').all() as any[]
+    const checklistSummary = checklists.map((cl: any) => {
+      const items = db.query('SELECT id FROM checklist_items WHERE checklist_id = ?').all([cl.id]) as any[]
+      const done = db.query(
+        "SELECT COUNT(*) as c FROM checklist_completions WHERE item_id IN (SELECT id FROM checklist_items WHERE checklist_id = ?) AND completed_date = ?"
+      ).get(cl.id, today) as any
+      return { id: cl.id, title: cl.title, type: cl.type, total: items.length, completed: done?.c || 0 }
+    })
+
+    // Health: total profiles, latest weight
+    const profiles = db.query('SELECT * FROM health_profiles').all() as any[]
+    const healthSummary = profiles.map((p: any) => {
+      const w = db.query(
+        "SELECT value, date FROM health_measurements WHERE profile_id = ? AND type = 'weight' ORDER BY date DESC LIMIT 1"
+      ).get(p.id) as any
+      return { id: p.id, name: p.name, role: p.role, latestWeight: w || null }
+    })
+
+    // Events: next 7 days
+    const nextWeek = new Date()
+    nextWeek.setDate(nextWeek.getDate() + 7)
+    const nextWeekStr = nextWeek.toISOString().split('T')[0]
+    const upcomingEvents = db.query(
+      'SELECT * FROM events WHERE event_date >= ? AND event_date <= ? ORDER BY event_date ASC, time ASC'
+    ).all(today, nextWeekStr)
+
+    // Backup status
+    const { existsSync, readdirSync, statSync } = require('node:fs')
+    const { join } = require('node:path')
+    const backupDir = join(import.meta.dir, '..', 'data', 'backups')
+    let lastBackup: string | null = null
+    let backupCount = 0
+    if (existsSync(backupDir)) {
+      const files = readdirSync(backupDir).filter(f => f.startsWith('tomo_')).sort().reverse()
+      backupCount = files.length
+      if (files.length > 0) {
+        const stat = statSync(join(backupDir, files[0]))
+        lastBackup = files[0].replace('tomo_', '').replace('.db', '')
+      }
+    }
+
+    return {
+      memo: memoSummary,
+      stock: stockSummary,
+      checklist: checklistSummary,
+      health: healthSummary,
+      events: { total: upcomingEvents.length, upcoming: upcomingEvents.slice(0, 5) },
+      backup: { lastBackup, count: backupCount },
+      updated_at: new Date().toISOString(),
+    }
+  })
+
   // ── Backup Create (PIN-protected, on-disk) ──────────────
   .post('/api/backup/now', (ctx) => {
     if (!requirePin(ctx)) return new Response('Unauthorized', { status: 401 })
