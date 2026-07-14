@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
 import { join } from 'node:path'
-import { createTables, seedDefaults, seedChecklists, seedStock } from './db/schema'
+import { createTables, seedDefaults, seedChecklists, seedStock, seedMemos } from './db/schema'
 import { healthCheck } from './routes/health'
 import { broadcast, setServer } from './ws'
 import db from './db/db'
@@ -10,6 +10,7 @@ createTables()
 seedDefaults()
 seedChecklists()
 seedStock()
+seedMemos()
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001
 
@@ -199,6 +200,46 @@ const app = new Elysia()
     )
     broadcast({ type: 'checklist_toggle', action: 'check', itemId: Number(itemId), checklistId: Number(id), completed_by: name }, 'checklist')
     return { data: { id: itemId, completed: true, completed_by: name } }
+  })
+
+  // ── Memo ───────────────────────────────────────────────────
+
+  .ws('/ws/memo', {
+    open(ws) { ws.subscribe('memo') },
+    message(ws, msg) { ws.send(msg) },
+  })
+
+  .get('/api/memos', () => {
+    const data = db.query('SELECT * FROM memos ORDER BY is_pinned DESC, created_at DESC').all()
+    return { data }
+  })
+
+  .post('/api/memos', (ctx) => {
+    const { content, color } = ctx.body as any
+    const r = db.run('INSERT INTO memos (content, color, is_pinned) VALUES (?, ?, 0)',
+      content, color || '#FEF3C7')
+    const memo = db.query('SELECT * FROM memos WHERE id = ?').get(r.lastInsertRowid)
+    broadcast({ type: 'memo', action: 'create', memo }, 'memo')
+    return { data: memo }
+  })
+
+  .patch('/api/memos/:id', (ctx) => {
+    const id = ctx.params.id
+    const { content, color, is_pinned } = ctx.body as any
+    if (content !== undefined) db.run('UPDATE memos SET content = ? WHERE id = ?', content, id)
+    if (color !== undefined) db.run('UPDATE memos SET color = ? WHERE id = ?', color, id)
+    if (is_pinned !== undefined) db.run('UPDATE memos SET is_pinned = ? WHERE id = ?', is_pinned ? 1 : 0, id)
+    db.run("UPDATE memos SET updated_at = datetime('now', 'localtime') WHERE id = ?", id)
+    const memo = db.query('SELECT * FROM memos WHERE id = ?').get(id)
+    broadcast({ type: 'memo', action: 'update', memo }, 'memo')
+    return { data: memo }
+  })
+
+  .delete('/api/memos/:id', (ctx) => {
+    const id = ctx.params.id
+    db.run('DELETE FROM memos WHERE id = ?', id)
+    broadcast({ type: 'memo', action: 'delete', id: Number(id) }, 'memo')
+    return { success: true }
   })
 
   // ── Stock ──────────────────────────────────────────────────

@@ -202,3 +202,16 @@ export function seedStock() {
     ('Kantong Sampah', 'Lainnya', 10, 5, 'lembar')
   `)
 }
+
+// Seed memos
+export function seedMemos() {
+  const count = db.query('SELECT COUNT(*) as c FROM memos').get() as { c: number }
+  if (count.c > 0) return
+
+  db.run(`INSERT INTO memos (content, color, is_pinned) VALUES
+    ('Jangan lupa bayar listrik sebelum tanggal 20!', '#FEF3C7', 0),
+    ('Rencana liburan akhir tahun: ke Jogja 🏔️', '#DCFCE7', 0),
+    ('Resep baru: Nasi goreng kencur — coba weekend ini', '#DBEAFE', 1),
+    ('PIN WiFi: 12345678', '#FEE2E2', 1)
+  `)
+}
