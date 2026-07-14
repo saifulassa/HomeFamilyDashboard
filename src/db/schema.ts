@@ -1,4 +1,7 @@
 import db from './db'
+import { createHash } from 'node:crypto'
+
+function sha256(s: string) { return createHash('sha256').update(s).digest('hex') }
 
 export function createTables() {
   db.run(`
@@ -213,5 +216,45 @@ export function seedMemos() {
     ('Rencana liburan akhir tahun: ke Jogja 🏔️', '#DCFCE7', 0),
     ('Resep baru: Nasi goreng kencur — coba weekend ini', '#DBEAFE', 1),
     ('PIN WiFi: 12345678', '#FEE2E2', 1)
+  `)
+}
+
+// Seed PIN (always runs — ensures PIN is set)
+export function seedPin() {
+  const hash = sha256('171545')
+  db.run("UPDATE family_settings SET value = ? WHERE key = 'pin_hash'", hash)
+  db.run("UPDATE family_settings SET value = 'true' WHERE key = 'pin_enabled'")
+
+  // If pin_hash doesn't exist yet (fresh DB), insert it
+  const exists = db.query("SELECT COUNT(*) as c FROM family_settings WHERE key = 'pin_hash'").get() as { c: number }
+  if (exists.c === 0) {
+    db.run("INSERT INTO family_settings (key, value) VALUES ('pin_hash', ?)", hash)
+    db.run("INSERT INTO family_settings (key, value) VALUES ('pin_enabled', 'true')")
+  }
+}
+
+// Seed health profiles
+export function seedHealth() {
+  const count = db.query('SELECT COUNT(*) as c FROM health_profiles').get() as { c: number }
+  if (count.c > 0) return
+
+  db.run(`INSERT INTO health_profiles (name, role, birth_date, gender) VALUES
+    ('Ayah', 'adult', '1985-06-15', 'L'),
+    ('Ibu', 'adult', '1988-11-20', 'P'),
+    ('Anak', 'child', '2016-03-10', 'L')
+  `)
+
+  db.run(`INSERT INTO health_measurements (profile_id, type, value, systolic, diastolic, date, notes) VALUES
+    (1, 'bp', NULL, 120, 80, date('now', 'localtime'), 'Normal'),
+    (1, 'weight', 72, NULL, NULL, date('now', 'localtime'), ''),
+    (2, 'bp', NULL, 110, 70, date('now', 'localtime'), 'Normal'),
+    (2, 'weight', 58, NULL, NULL, date('now', 'localtime'), ''),
+    (3, 'weight', 28, NULL, NULL, date('now', 'localtime'), ''),
+    (3, 'height', 135, NULL, NULL, date('now', 'localtime'), '')
+  `)
+
+  db.run(`INSERT INTO immunizations (profile_id, vaccine_name, date, next_due, notes) VALUES
+    (3, 'Campak', '2025-05-10', '2026-05-10', 'Booster rutin'),
+    (3, 'Polio', '2025-03-15', '2026-03-15', 'Imunisasi dasar')
   `)
 }
