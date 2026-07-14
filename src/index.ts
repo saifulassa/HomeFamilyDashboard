@@ -464,6 +464,79 @@ const app = new Elysia()
     }
     return { success: true }
   })
+
+  // ── Backup Create (PIN-protected, on-disk) ──────────────
+  .post('/api/backup/now', (ctx) => {
+    if (!requirePin(ctx)) return new Response('Unauthorized', { status: 401 })
+    const { existsSync, mkdirSync, cpSync, readdirSync, rmSync } = require('node:fs')
+    const { join } = require('node:path')
+    const DATA_DIR = join(import.meta.dir, '..', 'data')
+    const BACKUP_DIR = join(DATA_DIR, 'backups')
+    if (!existsSync(BACKUP_DIR)) mkdirSync(BACKUP_DIR, { recursive: true })
+
+    const now = new Date()
+    const ts = now.getFullYear()
+      + String(now.getMonth()+1).padStart(2,'0')
+      + String(now.getDate()).padStart(2,'0')
+      + String(now.getHours()).padStart(2,'0')
+      + String(now.getMinutes()).padStart(2,'0')
+      + String(now.getSeconds()).padStart(2,'0')
+    const backupFile = join(BACKUP_DIR, `tomo_${ts}.db`)
+    cpSync(join(DATA_DIR, 'tomo.db'), backupFile)
+
+    // Rolling retention — keep 14 days
+    const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000
+    for (const f of readdirSync(BACKUP_DIR)) {
+      if (!f.startsWith('tomo_') || !f.endsWith('.db')) continue
+      const fp = join(BACKUP_DIR, f)
+      const stat = require('node:fs').statSync(fp)
+      if (stat.birthtimeMs < cutoff) rmSync(fp)
+    }
+
+    const files = readdirSync(BACKUP_DIR).filter(f => f.startsWith('tomo_')).length
+    return { success: true, file: `backups/tomo_${ts}.db`, retention_days: 14, total_backups: files }
+  })
+
+  // ── Backup Export (no PIN — read-only) ───────────────────
+  .get('/api/backup/export', () => {
+    const tables = ['events','family_settings','checklists','checklist_items','checklist_completions','stock_items','memos','health_profiles','health_measurements','immunizations']
+    const dump: Record<string, any[]> = {}
+    for (const t of tables) {
+      try {
+        dump[t] = db.query(`SELECT * FROM ${t}`).all()
+      } catch { dump[t] = [] }
+    }
+    return { exported_at: new Date().toISOString(), version: 1, data: dump }
+  })
+
+  // ── Backup Import (PIN-protected) ────────────────────────
+  .post('/api/backup/import', (ctx) => {
+    if (!requirePin(ctx)) return new Response('Unauthorized', { status: 401 })
+    const { data } = ctx.body as any
+    if (!data) return { success: false, error: 'No data provided' }
+
+    const tables = ['events','family_settings','checklists','checklist_items','checklist_completions','stock_items','memos','health_profiles','health_measurements','immunizations']
+
+    db.run('BEGIN TRANSACTION')
+    try {
+      for (const t of tables) {
+        if (!data[t] || !Array.isArray(data[t])) continue
+        db.run(`DELETE FROM ${t}`)
+        if (data[t].length === 0) continue
+        const cols = Object.keys(data[t][0])
+        const placeholders = cols.map(() => '?').join(',')
+        const stmt = db.prepare(`INSERT INTO ${t} (${cols.join(',')}) VALUES (${placeholders})`)
+        for (const row of data[t]) {
+          stmt.run(cols.map(c => row[c]))
+        }
+      }
+      db.run('COMMIT')
+      return { success: true, imported: true }
+    } catch (e: any) {
+      db.run('ROLLBACK')
+      return { success: false, error: e.message }
+    }
+  })
   .get('/*', async ({ path }) => {
     const publicDir = join(import.meta.dir, '..', 'public')
     const filePath = path === '/' ? '/index.html' : path
