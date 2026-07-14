@@ -1,13 +1,14 @@
 import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
 import { join } from 'node:path'
-import { createTables, seedDefaults } from './db/schema'
+import { createTables, seedDefaults, seedChecklists } from './db/schema'
 import { healthCheck } from './routes/health'
 import { broadcast, setServer } from './ws'
 import db from './db/db'
 
 createTables()
 seedDefaults()
+seedChecklists()
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001
 
@@ -59,6 +60,148 @@ const app = new Elysia()
     broadcast({ type: 'event', action: 'delete', id: Number(id) })
     return { success: true }
   })
+
+  // ── Checklist CRUD ──────────────────────────────────────────
+
+  .ws('/ws/checklist', {
+    open(ws) { ws.subscribe('checklist') },
+    message(ws, msg) { ws.send(msg) },
+  })
+
+  .get('/api/checklists', () => {
+    const now = new Date()
+    const today = now.toISOString().split('T')[0]
+    const day = now.getDay()
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + (day === 0 ? -6 : 1 - day))
+    const weekStart = monday.toISOString().split('T')[0]
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const weekEnd = new Date(monday); weekEnd.setDate(weekEnd.getDate() + 6)
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+    const checklists = db.query('SELECT * FROM checklists ORDER BY sort_order ASC, id ASC').all() as any[]
+
+    const data = checklists.map((cl) => {
+      const [pStart, pEnd] = cl.type === 'daily'
+        ? [today, today]
+        : cl.type === 'weekly'
+        ? [weekStart, weekEnd.toISOString().split('T')[0]]
+        : [monthStart, monthEnd.toISOString().split('T')[0]]
+      const items = db.query(`
+        SELECT ci.*,
+          CASE WHEN cc.id IS NOT NULL THEN 1 ELSE 0 END as completed,
+          COALESCE(cc.completed_by, '') as completed_by
+        FROM checklist_items ci
+        LEFT JOIN checklist_completions cc ON ci.id = cc.item_id
+          AND cc.completed_date BETWEEN ? AND ?
+        WHERE ci.checklist_id = ?
+        ORDER BY ci.sort_order ASC, ci.id ASC
+      `).all([pStart, pEnd, cl.id])
+      return { ...cl, items }
+    })
+
+    return { data }
+  })
+
+  .post('/api/checklists', (ctx) => {
+    const { title, type } = ctx.body as any
+    const r = db.run('INSERT INTO checklists (title, type) VALUES (?, ?)', title, type || 'daily')
+    const cl = db.query('SELECT * FROM checklists WHERE id = ?').get(r.lastInsertRowid)
+    broadcast({ type: 'checklist', action: 'create', checklist: cl }, 'checklist')
+    return { data: cl }
+  })
+
+  .patch('/api/checklists/:id', (ctx) => {
+    const id = ctx.params.id
+    const { title, sort_order } = ctx.body as any
+    if (title !== undefined) db.run('UPDATE checklists SET title = ? WHERE id = ?', title, id)
+    if (sort_order !== undefined) db.run('UPDATE checklists SET sort_order = ? WHERE id = ?', sort_order, id)
+    const cl = db.query('SELECT * FROM checklists WHERE id = ?').get(id)
+    broadcast({ type: 'checklist', action: 'update', checklist: cl }, 'checklist')
+    return { data: cl }
+  })
+
+  .delete('/api/checklists/:id', (ctx) => {
+    const id = ctx.params.id
+    db.run('DELETE FROM checklists WHERE id = ?', id)
+    broadcast({ type: 'checklist', action: 'delete', id: Number(id) }, 'checklist')
+    return { success: true }
+  })
+
+  // ── Checklist Items ─────────────────────────────────────────
+
+  .post('/api/checklists/:id/items', (ctx) => {
+    const checklist_id = ctx.params.id
+    const { label, type, day_of_week, day_of_month } = ctx.body as any
+    const r = db.run(
+      'INSERT INTO checklist_items (checklist_id, label, type, day_of_week, day_of_month) VALUES (?, ?, ?, ?, ?)',
+      checklist_id, label, type || 'daily', day_of_week || null, day_of_month || null
+    )
+    const item = db.query('SELECT * FROM checklist_items WHERE id = ?').get(r.lastInsertRowid)
+    broadcast({ type: 'checklist_item', action: 'create', item, checklistId: Number(checklist_id) }, 'checklist')
+    return { data: item }
+  })
+
+  .patch('/api/checklists/:id/items/:itemId', (ctx) => {
+    const { id, itemId } = ctx.params
+    const { label, sort_order, day_of_week, day_of_month } = ctx.body as any
+    if (label !== undefined) db.run('UPDATE checklist_items SET label = ? WHERE id = ?', label, itemId)
+    if (sort_order !== undefined) db.run('UPDATE checklist_items SET sort_order = ? WHERE id = ?', sort_order, itemId)
+    if (day_of_week !== undefined) db.run('UPDATE checklist_items SET day_of_week = ? WHERE id = ?', day_of_week, itemId)
+    if (day_of_month !== undefined) db.run('UPDATE checklist_items SET day_of_month = ? WHERE id = ?', day_of_month, itemId)
+    const item = db.query('SELECT * FROM checklist_items WHERE id = ?').get(itemId)
+    broadcast({ type: 'checklist_item', action: 'update', item, checklistId: Number(id) }, 'checklist')
+    return { data: item }
+  })
+
+  .delete('/api/checklists/:id/items/:itemId', (ctx) => {
+    const { id, itemId } = ctx.params
+    db.run('DELETE FROM checklist_items WHERE id = ?', itemId)
+    broadcast({ type: 'checklist_item', action: 'delete', itemId: Number(itemId), checklistId: Number(id) }, 'checklist')
+    return { success: true }
+  })
+
+  // ── Checklist Toggle ────────────────────────────────────────
+
+  .patch('/api/checklists/:id/items/:itemId/toggle', (ctx) => {
+    const { id, itemId } = ctx.params
+    const { completed_by } = ctx.body as any
+
+    const item = db.query('SELECT * FROM checklist_items WHERE id = ?').get(itemId) as any
+    if (!item) return new Response('Not Found', { status: 404 })
+
+    const now = new Date()
+    const today = now.toISOString().split('T')[0]
+    const day = now.getDay()
+    const monday = new Date(now)
+    monday.setDate(now.getDate() + (day === 0 ? -6 : 1 - day))
+    const weekStart = monday.toISOString().split('T')[0]
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+
+    const periodStart = item.type === 'daily' ? today : item.type === 'weekly' ? weekStart : monthStart
+
+    const existing = db.query(
+      'SELECT id FROM checklist_completions WHERE item_id = ? AND completed_date >= ? ORDER BY completed_date DESC LIMIT 1'
+    ).get(itemId, periodStart) as any
+
+    if (existing) {
+      db.run('DELETE FROM checklist_completions WHERE id = ?', existing.id)
+      broadcast({ type: 'checklist_toggle', action: 'uncheck', itemId: Number(itemId), checklistId: Number(id) }, 'checklist')
+      return { data: { id: itemId, completed: false } }
+    }
+
+    const name = (completed_by || 'Ayah').trim()
+    db.run(
+      'INSERT INTO checklist_completions (item_id, completed_by, completed_date) VALUES (?, ?, ?)',
+      itemId, name, today
+    )
+    broadcast({ type: 'checklist_toggle', action: 'check', itemId: Number(itemId), checklistId: Number(id), completed_by: name }, 'checklist')
+    return { data: { id: itemId, completed: true, completed_by: name } }
+  })
+
+  // ── Settings ────────────────────────────────────────────────
+
   .get('/api/settings', () => {
     const rows = db.query('SELECT key, value FROM family_settings').all() as { key: string; value: string }[]
     const map: Record<string, string> = {}

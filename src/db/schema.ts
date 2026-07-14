@@ -155,3 +155,31 @@ export function seedDefaults() {
       ('default_theme', 'auto')
   `)
 }
+
+// Seed checklist groups
+export function seedChecklists() {
+  const clCount = db.query('SELECT COUNT(*) as c FROM checklists').get() as { c: number }
+  if (clCount.c > 0) return
+
+  db.run(`INSERT INTO checklists (id, title, type, sort_order) VALUES
+    (1, 'Pekerjaan Rumah', 'daily', 1),
+    (2, 'Tugas Anak', 'daily', 2),
+    (3, 'Kebersihan Mingguan', 'weekly', 3),
+    (4, 'Tagihan Bulanan', 'monthly', 4)
+  `)
+  db.run(`INSERT INTO checklist_items (checklist_id, label, type, sort_order) VALUES
+    (1, 'Sapu rumah', 'daily', 1),
+    (1, 'Cuci piring', 'daily', 2),
+    (1, 'Buang sampah', 'daily', 3),
+    (1, 'Merapikan tempat tidur', 'daily', 4),
+    (2, 'PR Matematika', 'daily', 1),
+    (2, 'Baca buku 30 menit', 'daily', 2),
+    (2, 'Hafalan surat pendek', 'daily', 3),
+    (3, 'Menyapu halaman', 'weekly', 1),
+    (3, 'Menyiram tanaman', 'weekly', 2),
+    (3, 'Membersihkan kaca jendela', 'weekly', 3),
+    (4, 'Bayar listrik', 'monthly', 1),
+    (4, 'Bayar air PDAM', 'monthly', 2),
+    (4, 'Bayar internet', 'monthly', 3)
+  `)
+}

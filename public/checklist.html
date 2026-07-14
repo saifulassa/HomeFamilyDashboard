@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Checklist — Tomo Family Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117; --card: #161b22; --border: #30363d;
+  --text: #e6edf3; --text2: #8b949e; --text3: #484f58;
+  --accent: #1f6feb; --accent-hover: #388bfd;
+  --green: #3fb950; --red: #f85149; --orange: #d29922;
+  --radius: 8px; --radius-sm: 6px;
+  --font: 'Inter', -apple-system, sans-serif;
+}
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.5; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+/* Header */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+  padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+}
+.header h1 { margin: 0; font-size: 18px; font-weight: 700; flex: 1; }
+.back-btn {
+  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text); cursor: pointer; font-size: 18px; text-decoration: none;
+}
+.back-btn:hover { background: var(--card); }
+
+/* Tabs */
+.tabs {
+  display: flex; background: var(--bg); border-bottom: 1px solid var(--border);
+  position: sticky; top: 57px; z-index: 99;
+}
+.tab-btn {
+  flex: 1; padding: 12px 8px; background: none; border: none;
+  color: var(--text2); font-family: var(--font); font-size: 13px; font-weight: 500;
+  cursor: pointer; position: relative; transition: color .15s;
+}
+.tab-btn.active { color: var(--text); }
+.tab-btn::after {
+  content: ''; position: absolute; bottom: 0; left: 16px; right: 16px;
+  height: 2px; background: transparent; border-radius: 1px; transition: background .15s;
+}
+.tab-btn.active::after { background: var(--accent); }
+.tab-btn .badge {
+  display: inline-block; background: var(--card); color: var(--text2);
+  font-size: 11px; padding: 1px 7px; border-radius: 99px; margin-left: 6px;
+}
+
+/* Content */
+.container { max-width: 640px; margin: 0 auto; padding: 0; }
+
+/* Group */
+.group { margin: 12px 12px 0; background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
+.group-header {
+  display: flex; align-items: center; padding: 10px 14px;
+  border-bottom: 1px solid var(--border); gap: 8px;
+}
+.group-header h3 { margin: 0; font-size: 13px; font-weight: 600; flex: 1; }
+.group-actions { display: flex; gap: 4px; }
+.icon-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  background: none; border: none; color: var(--text2); cursor: pointer;
+  border-radius: 4px; font-size: 14px;
+}
+.icon-btn:hover { background: var(--bg); color: var(--text); }
+.icon-btn.danger:hover { color: var(--red); }
+
+/* Item row */
+.item-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s;
+}
+.item-row:last-child { border-bottom: none; }
+.item-row:hover { background: rgba(255,255,255,.02); }
+.item-row.completed { opacity: .7; }
+
+.checkbox {
+  width: 20px; height: 20px; min-width: 20px; border-radius: 50%;
+  border: 2px solid var(--text3); display: flex; align-items: center; justify-content: center;
+  transition: all .15s; font-size: 11px;
+}
+.checkbox.checked { background: var(--green); border-color: var(--green); color: #fff; }
+
+.item-label { flex: 1; font-size: 14px; transition: color .2s; word-break: break-word; }
+.item-row.completed .item-label { text-decoration: line-through; color: var(--text3); }
+
+.completed-by {
+  font-size: 11px; color: var(--text2); background: var(--bg);
+  padding: 2px 8px; border-radius: 99px; white-space: nowrap;
+}
+
+/* Empty state */
+.empty-state { text-align: center; padding: 48px 16px; color: var(--text2); }
+.empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+.empty-state p { margin: 0 0 16px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent); color: #fff; border: none; padding: 8px 16px;
+  border-radius: var(--radius-sm); font-family: var(--font); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: background .15s;
+}
+.btn:hover { background: var(--accent-hover); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-outline {
+  background: none; border: 1px solid var(--border); color: var(--text);
+}
+.btn-outline:hover { background: var(--card); }
+
+/* Attribution picker modal */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 999;
+  background: rgba(0,0,0,.6); align-items: flex-end; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--card); border-radius: 12px 12px 0 0; padding: 20px;
+  width: 100%; max-width: 640px; animation: slideUp .2s;
+}
+@keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal h3 { margin: 0 0 16px; font-size: 15px; font-weight: 600; }
+.member-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.member-btn {
+  padding: 12px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text); font-family: var(--font);
+  font-size: 13px; cursor: pointer; text-align: center; transition: all .1s;
+}
+.member-btn:hover, .member-btn.active { border-color: var(--accent); background: rgba(31,111,235,.1); color: var(--accent); }
+.custom-input-row { display: flex; gap: 8px; }
+.custom-input-row input {
+  flex: 1; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text); font-family: var(--font); font-size: 13px;
+}
+.custom-input-row input::placeholder { color: var(--text3); }
+.custom-input-row input:focus { outline: none; border-color: var(--accent); }
+.modal-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* Add item form */
+.add-item-row {
+  display: flex; padding: 8px 14px 12px; gap: 8px;
+}
+.add-item-row input {
+  flex: 1; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text); font-family: var(--font); font-size: 13px;
+}
+.add-item-row input::placeholder { color: var(--text3); }
+.add-item-row input:focus { outline: none; border-color: var(--accent); }
+
+/* Add checklist FAB */
+.fab {
+  position: fixed; bottom: 24px; right: 24px;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--accent); color: #fff; border: none;
+  font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.4);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s, background .15s; z-index: 50;
+}
+.fab:hover { transform: scale(1.08); background: var(--accent-hover); }
+
+/* Inline form */
+.inline-form {
+  display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--border);
+  background: rgba(255,255,255,.01);
+}
+.inline-form input, .inline-form select {
+  padding: 8px 10px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text); font-family: var(--font); font-size: 13px;
+}
+.inline-form select { cursor: pointer; }
+.inline-form input:focus, .inline-form select:focus { outline: none; border-color: var(--accent); }
+.inline-form .btn { white-space: nowrap; }
+.inline-form input { flex: 1; max-width: 200px; }
+.inline-form input::placeholder { color: var(--text3); }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 20px; color: var(--text2); font-size: 13px; z-index: 999;
+  animation: fadeUp .3s;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+/* Mobile */
+@media (max-width: 480px) {
+  .member-grid { grid-template-columns: 1fr 1fr; }
+  .item-row { padding: 12px 14px; }
+}
+
+/* Light theme */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de;
+    --text: #1f2328; --text2: #656d76; --text3: #8c959f;
+    --accent: #0969da; --accent-hover: #0550ae;
+    --green: #1a7f37; --red: #cf222e; --orange: #9a6700;
+  }
+  .group-header, .item-row, .inline-form { border-color: var(--border); }
+  .item-row:hover { background: rgba(0,0,0,.015); }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a class="back-btn" href="/">←</a>
+  <h1>Checklist ✅</h1>
+  <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab-btn active" data-tab="daily" onclick="switchTab('daily')">
+    Harian <span class="badge" id="daily-count">0</span>
+  </button>
+  <button class="tab-btn" data-tab="weekly" onclick="switchTab('weekly')">
+    Mingguan <span class="badge" id="weekly-count">0</span>
+  </button>
+  <button class="tab-btn" data-tab="monthly" onclick="switchTab('monthly')">
+    Bulanan <span class="badge" id="monthly-count">0</span>
+  </button>
+</div>
+
+<div class="container" id="content"></div>
+
+<button class="fab" onclick="showAddChecklist()" title="Tambah grup checklist">+</button>
+
+<!-- Attribution Modal -->
+<div class="modal-overlay" id="attributionModal">
+  <div class="modal">
+    <h3>✓ Selesai oleh:</h3>
+    <div class="member-grid" id="memberGrid"></div>
+    <div class="custom-input-row">
+      <input id="customName" placeholder="Nama lain..." maxlength="30">
+      <button class="btn" onclick="confirmAttribution()">OK</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeAttribution()">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Checklist Modal -->
+<div class="modal-overlay" id="addChecklistModal">
+  <div class="modal">
+    <h3>Tambah Grup Checklist</h3>
+    <div class="inline-form">
+      <input id="newChecklistTitle" placeholder="Nama grup..." style="max-width:none;flex:1">
+      <select id="newChecklistType">
+        <option value="daily">Harian</option>
+        <option value="weekly">Mingguan</option>
+        <option value="monthly">Bulanan</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('addChecklistModal')">Batal</button>
+      <button class="btn" style="flex:1" onclick="createChecklist()">Buat</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = ''
+let data = { daily: [], weekly: [], monthly: [] }
+let currentTab = 'daily'
+let pendingItemId = null
+let pendingChecklistId = null
+let ws = null
+
+// ── Init ────────────────────────────────────────────
+async function init() {
+  await fetchData()
+  render()
+  connectWS()
+}
+
+async function fetchData() {
+  const r = await fetch(API + '/api/checklists')
+  const j = await r.json()
+  // Group by type
+  data = { daily: [], weekly: [], monthly: [] }
+  for (const cl of j.data) {
+    if (data[cl.type]) data[cl.type].push(cl)
+  }
+  updateCounts()
+}
+
+function updateCounts() {
+  for (const t of ['daily','weekly','monthly']) {
+    const total = data[t].reduce((s, g) => s + g.items.length, 0)
+    const done = data[t].reduce((s, g) => s + g.items.filter(i => i.completed).length, 0)
+    document.getElementById(t + '-count').textContent = done + '/' + total
+  }
+}
+
+// ── Render ───────────────────────────────────────────
+function render() {
+  const container = document.getElementById('content')
+  const groups = data[currentTab] || []
+  if (!groups.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📋</div>
+        <p>Belum ada checklist ${tabLabel(currentTab)}</p>
+        <button class="btn" onclick="showAddChecklist()">+ Tambah Grup</button>
+      </div>
+    `
+    return
+  }
+
+  let html = ''
+  for (const group of groups) {
+    const completed = group.items.filter(i => i.completed).length
+    html += `
+      <div class="group" data-checklist-id="${group.id}">
+        <div class="group-header">
+          <h3>${escHtml(group.title)}</h3>
+          <span style="font-size:11px;color:var(--text2)">${completed}/${group.items.length}</span>
+          <div class="group-actions">
+            <button class="icon-btn" onclick="showEditChecklist(event, ${group.id}, '${escHtml(group.title)}')" title="Edit grup">✏️</button>
+            <button class="icon-btn danger" onclick="deleteChecklist(event, ${group.id})" title="Hapus grup">🗑️</button>
+          </div>
+        </div>
+        <div class="items-container" data-checklist-id="${group.id}">
+          ${group.items.map(item => renderItem(item, group.id)).join('')}
+        </div>
+        <div class="add-item-row">
+          <input id="newitem-${group.id}" placeholder="Tambah item..." onkeydown="if(event.key==='Enter')addItem(${group.id})">
+          <button class="btn btn-sm" onclick="addItem(${group.id})">+</button>
+        </div>
+      </div>
+    `
+  }
+  container.innerHTML = html
+  updateCounts()
+}
+
+function renderItem(item, checklistId) {
+  const done = item.completed ? 'completed' : ''
+  const checkClass = item.completed ? 'checked' : ''
+  const byHtml = item.completed_by ? `<span class="completed-by">${escHtml(item.completed_by)}</span>` : ''
+  return `
+    <div class="item-row ${done}" data-item-id="${item.id}" data-checklist-id="${checklistId}"
+         onclick="onItemClick(${checklistId}, ${item.id})">
+      <div class="checkbox ${checkClass}">${item.completed ? '✓' : ''}</div>
+      <span class="item-label">${escHtml(item.label)}</span>
+      ${byHtml}
+      <button class="icon-btn danger" onclick="event.stopPropagation();deleteItem(${checklistId}, ${item.id})" title="Hapus">✕</button>
+    </div>
+  `
+}
+
+function tabLabel(type) {
+  return { daily: 'Harian', weekly: 'Mingguan', monthly: 'Bulanan' }[type] || ''
+}
+
+function escHtml(s) {
+  const d = document.createElement('div')
+  d.textContent = s || ''
+  return d.innerHTML
+}
+
+// ── Tab switching ──────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab))
+  render()
+}
+
+// ── Item toggle ────────────────────────────────────
+function onItemClick(checklistId, itemId) {
+  const group = data[currentTab].find(g => g.id === checklistId)
+  if (!group) return
+  const item = group.items.find(i => i.id === itemId)
+  if (!item) return
+
+  if (item.completed) {
+    // Uncheck immediately
+    toggleItem(checklistId, itemId, '')
+  } else {
+    // Show attribution picker
+    pendingChecklistId = checklistId
+    pendingItemId = itemId
+    showAttribution()
+  }
+}
+
+async function toggleItem(checklistId, itemId, completedBy) {
+  const r = await fetch(API + `/api/checklists/${checklistId}/items/${itemId}/toggle`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ completed_by: completedBy }),
+  })
+  if (!r.ok) { toast('Gagal update'); return }
+}
+
+// ── Attribution ────────────────────────────────────
+const MEMBERS = ['Ayah', 'Ibu', 'Anak']
+
+function showAttribution() {
+  const grid = document.getElementById('memberGrid')
+  grid.innerHTML = MEMBERS.map(m =>
+    `<button class="member-btn" onclick="pickMember(this, '${m}')">${m}</button>`
+  ).join('')
+  document.getElementById('customName').value = ''
+  document.getElementById('attributionModal').classList.add('open')
+}
+
+let selectedMember = null
+
+function pickMember(el, name) {
+  document.querySelectorAll('.member-btn').forEach(b => b.classList.remove('active'))
+  el.classList.add('active')
+  selectedMember = name
+}
+
+function confirmAttribution() {
+  const custom = document.getElementById('customName').value.trim()
+  const name = custom || selectedMember || 'Ayah'
+  closeAttribution()
+  toggleItem(pendingChecklistId, pendingItemId, name)
+}
+
+function closeAttribution() {
+  document.getElementById('attributionModal').classList.remove('open')
+  pendingItemId = null
+  pendingChecklistId = null
+  selectedMember = null
+}
+
+// ── Add item ───────────────────────────────────────
+async function addItem(checklistId) {
+  const input = document.getElementById('newitem-' + checklistId)
+  const label = input.value.trim()
+  if (!label) return
+  input.disabled = true
+  const r = await fetch(API + `/api/checklists/${checklistId}/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ label, type: currentTab }),
+  })
+  input.disabled = false
+  if (r.ok) { input.value = ''; input.focus() }
+  else toast('Gagal tambah item')
+}
+
+// ── Delete item ────────────────────────────────────
+async function deleteItem(checklistId, itemId) {
+  if (!confirm('Hapus item ini?')) return
+  await fetch(API + `/api/checklists/${checklistId}/items/${itemId}`, { method: 'DELETE' })
+}
+
+// ── Add checklist ──────────────────────────────────
+function showAddChecklist() {
+  document.getElementById('addChecklistModal').classList.add('open')
+  document.getElementById('newChecklistTitle').value = ''
+  document.getElementById('newChecklistType').value = currentTab
+  document.getElementById('newChecklistTitle').focus()
+}
+
+async function createChecklist() {
+  const title = document.getElementById('newChecklistTitle').value.trim()
+  const type = document.getElementById('newChecklistType').value
+  if (!title) return
+  const r = await fetch(API + '/api/checklists', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, type }),
+  })
+  if (r.ok) {
+    closeModal('addChecklistModal')
+    toast('Grup berhasil dibuat')
+  } else {
+    toast('Gagal buat grup')
+  }
+}
+
+// ── Edit checklist ─────────────────────────────────
+function showEditChecklist(event, id, title) {
+  event.stopPropagation()
+  const newTitle = prompt('Edit nama grup:', title)
+  if (newTitle && newTitle.trim()) {
+    fetch(API + `/api/checklists/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newTitle.trim() }),
+    })
+  }
+}
+
+// ── Delete checklist ───────────────────────────────
+async function deleteChecklist(event, id) {
+  event.stopPropagation()
+  if (!confirm('Hapus seluruh grup checklist ini?')) return
+  await fetch(API + `/api/checklists/${id}`, { method: 'DELETE' })
+  toast('Grup dihapus')
+}
+
+// ── WS ─────────────────────────────────────────────
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+  ws = new WebSocket(`${proto}//${location.host}/ws/checklist`)
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data)
+      handleWS(msg)
+    } catch {}
+  }
+  ws.onclose = () => setTimeout(connectWS, 2000)
+}
+
+function handleWS(msg) {
+  if (msg.type === 'checklist' && (msg.action === 'create' || msg.action === 'update')) {
+    fetchData().then(render)
+  } else if (msg.type === 'checklist' && msg.action === 'delete') {
+    fetchData().then(render)
+  } else if (msg.type === 'checklist_item' && msg.action === 'create') {
+    fetchData().then(render)
+  } else if (msg.type === 'checklist_item' && msg.action === 'delete') {
+    fetchData().then(render)
+  } else if (msg.type === 'checklist_toggle') {
+    fetchData().then(render)
+  }
+}
+
+// ── Theme ──────────────────────────────────────────
+function toggleTheme() {
+  // Toggle dark class on html
+  const html = document.documentElement
+  const isDark = html.getAttribute('data-theme') !== 'light'
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark')
+  // Force light/dark by overriding root vars
+  const style = document.createElement('style')
+  if (isDark) {
+    style.textContent = `:root{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--text3:#8c959f;--accent:#0969da;--accent-hover:#0550ae;--green:#1a7f37;--red:#cf222e;--orange:#9a6700}.group-header,.item-row,.inline-form{border-color:var(--border)}.item-row:hover{background:rgba(0,0,0,.015)}`
+  } else {
+    style.textContent = `:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--text3:#484f58;--accent:#1f6feb;--accent-hover:#388bfd;--green:#3fb950;--red:#f85149;--orange:#d29922}.group-header,.item-row,.inline-form{border-color:var(--border)}.item-row:hover{background:rgba(255,255,255,.02)}`
+  }
+  document.head.appendChild(style)
+  localStorage.setItem('theme', isDark ? 'light' : 'dark')
+}
+
+// Apply saved theme
+(function() {
+  const saved = localStorage.getItem('theme')
+  if (saved === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light')
+    const style = document.createElement('style')
+    style.textContent = `:root{--bg:#f6f8fa;--card:#fff;--border:#d0d7de;--text:#1f2328;--text2:#656d76;--text3:#8c959f;--accent:#0969da;--accent-hover:#0550ae;--green:#1a7f37;--red:#cf222e;--orange:#9a6700}`
+    document.head.appendChild(style)
+  }
+})()
+
+// ── Helpers ────────────────────────────────────────
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open')
+}
+
+function toast(msg) {
+  const el = document.createElement('div')
+  el.className = 'toast'
+  el.textContent = msg
+  document.body.appendChild(el)
+  setTimeout(() => el.remove(), 2500)
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', (e) => {
+    if (e.target === el) el.classList.remove('open')
+  })
+})
+
+init()
+</script>
+</body>
+</html>
