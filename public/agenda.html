@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agenda — Tomo Family Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#1f6feb', success: '#3fb950',
+            danger: '#f85149', warning: '#d29922',
+            canvas: 'var(--color-canvas)', card: 'var(--color-card)',
+            border: 'var(--color-border)', text: 'var(--color-text)',
+            muted: 'var(--color-muted)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --color-canvas: #f8f9fa; --color-card: #ffffff;
+      --color-border: #dee2e6; --color-text: #212529;
+      --color-muted: #6c757d; --color-header-bg: #ffffff;
+      --color-hover: #f1f3f5; --color-clock-bg: #e9ecef;
+      --color-toggle-bg: #e9ecef; --color-toggle-icon: #495057;
+      --color-overlay: rgba(0,0,0,0.3);
+    }
+    [data-theme="dark"] {
+      --color-canvas: #0d1117; --color-card: #161b22;
+      --color-border: #30363d; --color-text: #c9d1d9;
+      --color-muted: #8b949e; --color-header-bg: #161b22;
+      --color-hover: #1c2128; --color-clock-bg: #0d1117;
+      --color-toggle-bg: #21262d; --color-toggle-icon: #8b949e;
+      --color-overlay: rgba(0,0,0,0.6);
+    }
+    body { background: var(--color-canvas); color: var(--color-text); min-height: 100vh; }
+    .card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: 10px; transition: background .2s, border-color .2s; }
+    .header-bg { background: var(--color-header-bg); border-bottom: 1px solid var(--color-border); }
+    .toggle-btn { background: var(--color-toggle-bg); color: var(--color-toggle-icon); border: 1px solid var(--color-border); }
+    .toggle-btn:hover { background: var(--color-border); color: var(--color-text); }
+    .modal-overlay { background: var(--color-overlay); }
+    .event-card { transition: background .15s, border-color .15s; cursor: pointer; }
+    .event-card:hover { background: var(--color-hover); border-color: var(--color-text) !important; }
+    .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+    .scroll-x::-webkit-scrollbar { height: 6px; }
+    .scroll-x::-webkit-scrollbar-track { background: transparent; }
+    .scroll-x::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+    .color-swatch { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: border-color .15s, transform .15s; }
+    .color-swatch.selected, .color-swatch:hover { border-color: var(--color-text); transform: scale(1.15); }
+    input, textarea, select { background: var(--color-card); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 8px; }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary-color, #1f6feb); box-shadow: 0 0 0 2px rgba(31,111,235,0.2); }
+    .empty-state { text-align: center; padding: 2rem; color: var(--color-muted); }
+    .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 100; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header-bg sticky top-0 z-10">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-border transition-colors" title="Kembali">
+          <i class="fas fa-arrow-left text-sm" style="color:var(--color-muted)"></i>
+        </a>
+        <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm">
+          <i class="fas fa-calendar-days"></i>
+        </div>
+        <span class="font-semibold hidden sm:inline">Agenda Keluarga</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="clock" class="bg-clock-bg px-3 py-1.5 rounded-lg font-mono text-sm tabular-nums">--:--:--</div>
+        <button id="themeToggle" class="toggle-btn w-8 h-8 rounded-lg flex items-center justify-center text-sm" title="Ganti tema">
+          <i class="fas fa-moon" id="themeIcon"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="max-w-6xl mx-auto px-4 py-5">
+
+    <!-- Actions bar -->
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-base font-semibold" id="greeting">📅 Agenda</h2>
+        <p class="text-xs text-muted mt-0.5">4 hari ke depan</p>
+      </div>
+      <button id="addBtn" class="bg-primary text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5">
+        <i class="fas fa-plus"></i> Tambah
+      </button>
+    </div>
+
+    <!-- 4-day columns -->
+    <div class="scroll-x -mx-4 px-4 pb-1">
+      <div class="flex gap-3 min-w-0" id="dayColumns">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+
+    <!-- Loading / empty -->
+    <div id="loadingState" class="empty-state hidden"><i class="fas fa-spinner fa-spin text-lg"></i><p class="mt-2 text-sm">Memuat agenda...</p></div>
+    <div id="emptyState" class="empty-state hidden">
+      <i class="far fa-calendar-plus text-3xl"></i>
+      <p class="mt-2 text-sm">Belum ada acara</p>
+      <p class="text-xs mt-1">Klik Tambah buat bikin acara baru</p>
+    </div>
+  </main>
+
+  <!-- Add/Edit Modal -->
+  <div id="modal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center modal-overlay">
+    <div class="card w-full sm:max-w-md sm:mx-4 p-5 rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-sm" id="modalTitle">Tambah Acara</h3>
+        <button onclick="closeModal()" class="toggle-btn w-7 h-7 rounded-lg flex items-center justify-center text-xs"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="eventForm" class="space-y-3.5">
+        <input type="hidden" id="editId" value="">
+        <div>
+          <label class="text-xs text-muted block mb-1">Judul <span class="text-danger">*</span></label>
+          <input type="text" id="fTitle" class="w-full px-3 py-2 text-sm" placeholder="Nama acara..." required>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-muted block mb-1">Tanggal <span class="text-danger">*</span></label>
+            <input type="date" id="fDate" class="w-full px-3 py-2 text-sm" required>
+          </div>
+          <div>
+            <label class="text-xs text-muted block mb-1">Jam <span class="text-muted">(opsional)</span></label>
+            <input type="time" id="fTime" class="w-full px-3 py-2 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-muted block mb-1">Warna</label>
+          <div class="flex gap-2" id="colorPicker">
+            <!-- Injected by JS -->
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-muted block mb-1">Deskripsi <span class="text-muted">(opsional)</span></label>
+          <textarea id="fDesc" class="w-full px-3 py-2 text-sm resize-none" rows="3" placeholder="Catatan tambahan..."></textarea>
+        </div>
+      </form>
+      <div class="flex gap-2 mt-4">
+        <button onclick="closeModal()" class="flex-1 toggle-btn py-2 rounded-lg text-sm font-medium">Batal</button>
+        <button id="saveBtn" class="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete confirmation -->
+  <div id="deleteModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-overlay">
+    <div class="card w-full sm:max-w-sm sm:mx-4 p-5 rounded-2xl" onclick="event.stopPropagation()">
+      <div class="text-center">
+        <div class="w-12 h-12 rounded-full bg-danger/10 flex items-center justify-center mx-auto mb-3">
+          <i class="fas fa-trash-can text-danger"></i>
+        </div>
+        <h3 class="font-semibold text-sm mb-1">Hapus acara?</h3>
+        <p class="text-xs text-muted" id="deleteText">Acara akan dihapus permanen</p>
+      </div>
+      <div class="flex gap-2 mt-4">
+        <button onclick="closeDeleteModal()" class="flex-1 toggle-btn py-2 rounded-lg text-sm font-medium">Batal</button>
+        <button id="confirmDelete" class="flex-1 bg-danger text-white py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">Hapus</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script>
+    /* ===== STATE ===== */
+    let events = []
+    let selectedColor = '#1f6feb'
+    let deleteTargetId = null
+    let ws = null
+    let wsReconnectTimer = null
+
+    /* ===== COLORS ===== */
+    const COLORS = ['#1f6feb', '#3fb950', '#d29922', '#f85149', '#db6d28', '#bc8cff', '#58a6ff', '#56d364']
+
+    /* ===== DOM REFS ===== */
+    const $ = s => document.querySelector(s)
+    const $$ = s => document.querySelectorAll(s)
+
+    /* ===== HELPERS ===== */
+    function pad(n) { return String(n).padStart(2, '0') }
+
+    function getWIBDate(date) {
+      return new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
+    }
+
+    function formatWIB(d) {
+      const wib = getWIBDate(d)
+      return `${wib.getFullYear()}-${pad(wib.getMonth()+1)}-${pad(wib.getDate())}`
+    }
+
+    function todayWIB() {
+      return getWIBDate(new Date())
+    }
+
+    function todayISO() { return formatWIB(new Date()) }
+
+    function parseDateToWIB(iso) {
+      const [y,m,d] = iso.split('-').map(Number)
+      const d2 = new Date(Date.UTC(y, m-1, d))
+      // adjust to WIB by treating as UTC then adding 7h offset
+      // simpler: construct as local WIB date
+      return new Date(y, m-1, d, 0, 0, 0) // local timezone midnight
+    }
+
+    function nextDays(n) {
+      const days = []
+      const now = new Date()
+      const wibToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      for (let i = 0; i < n; i++) {
+        const d = new Date(wibToday)
+        d.setDate(d.getDate() + i)
+        days.push(d)
+      }
+      return days
+    }
+
+    const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+
+    function dayLabel(date) {
+      const isToday = date.toDateString() === new Date().toDateString()
+      return isToday ? 'Hari Ini' : DAY_NAMES[date.getDay()]
+    }
+
+    function dateLabel(date) {
+      return `${pad(date.getDate())} ${MONTH_NAMES[date.getMonth()]}`
+    }
+
+    function isoDate(date) {
+      return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`
+    }
+
+    /* ===== THEME ===== */
+    const STORAGE_KEY = 'tomo-theme'
+    function getDefaultTheme() {
+      const h = parseInt(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta', hour: '2-digit', hour12: false }), 10)
+      return (h >= 18 || h < 6) ? 'dark' : 'light'
+    }
+    function setTheme(theme, persist = true) {
+      document.documentElement.setAttribute('data-theme', theme)
+      document.documentElement.classList.toggle('dark', theme === 'dark')
+      document.getElementById('themeIcon').className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon'
+      if (persist) localStorage.setItem(STORAGE_KEY, theme)
+    }
+    function toggleTheme() {
+      setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark')
+    }
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) setTheme(saved)
+    else setTheme(getDefaultTheme(), false)
+    function scheduleAutoTheme() {
+      if (localStorage.getItem(STORAGE_KEY) !== null) return
+      setInterval(() => {
+        if (localStorage.getItem(STORAGE_KEY) === null) setTheme(getDefaultTheme(), false)
+      }, 60000)
+    }
+    scheduleAutoTheme()
+    document.getElementById('themeToggle').addEventListener('click', toggleTheme)
+
+    /* ===== CLOCK ===== */
+    function updateClock() {
+      const now = new Date()
+      const wib = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }))
+      document.getElementById('clock').textContent = `${pad(wib.getHours())}:${pad(wib.getMinutes())}:${pad(wib.getSeconds())}`
+      const h = wib.getHours()
+      let g = 'Selamat malam'
+      if (h >= 4 && h < 11) g = 'Selamat pagi'
+      else if (h >= 11 && h < 15) g = 'Selamat siang'
+      else if (h >= 15 && h < 18) g = 'Selamat sore'
+      document.getElementById('greeting').textContent = `📅 ${g}`
+    }
+    updateClock()
+    setInterval(updateClock, 1000)
+
+    /* ===== RENDER COLOR PICKER ===== */
+    function renderColorPicker(selected) {
+      const container = document.getElementById('colorPicker')
+      container.innerHTML = COLORS.map(c => `
+        <div class="color-swatch ${c === selected ? 'selected' : ''}" style="background:${c}" data-color="${c}" onclick="selectColor('${c}')"></div>
+      `).join('')
+    }
+
+    function selectColor(c) {
+      selectedColor = c
+      document.querySelectorAll('.color-swatch').forEach(el => {
+        el.classList.toggle('selected', el.dataset.color === c)
+      })
+    }
+
+    /* ===== FETCH EVENTS ===== */
+    async function loadEvents() {
+      try {
+        const res = await fetch('/api/events')
+        const json = await res.json()
+        events = json.data || []
+        renderDays()
+      } catch (e) {
+        console.error('Load events error:', e)
+        showToast('Gagal memuat agenda', 'danger')
+      }
+    }
+
+    /* ===== RENDER DAYS ===== */
+    function renderDays() {
+      const container = document.getElementById('dayColumns')
+      const empty = document.getElementById('emptyState')
+      const loading = document.getElementById('loadingState')
+
+      loading.classList.add('hidden')
+
+      const days = nextDays(4)
+
+      // Group events by date
+      const byDate = {}
+      events.forEach(e => {
+        const d = e.event_date || ''
+        if (!byDate[d]) byDate[d] = []
+        byDate[d].push(e)
+      })
+
+      // Sort events within each day by time then title
+      Object.values(byDate).forEach(arr => {
+        arr.sort((a, b) => {
+          if (a.time && b.time) return a.time.localeCompare(b.time)
+          if (a.time) return -1
+          if (b.time) return 1
+          return (a.title || '').localeCompare(b.title || '')
+        })
+      })
+
+      let total = 0
+      container.innerHTML = days.map((date, i) => {
+        const iso = isoDate(date)
+        const list = byDate[iso] || []
+        total += list.length
+
+        return `<div class="card min-w-[240px] sm:min-w-0 sm:flex-1 p-3.5 flex flex-col ${i === 0 ? 'ring-2 ring-primary/30' : ''}">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <div class="text-sm font-semibold">${dayLabel(date)}</div>
+              <div class="text-xs text-muted">${dateLabel(date)}</div>
+            </div>
+            <div class="text-xs text-muted tabular-nums">${list.length}</div>
+          </div>
+          <div class="flex-1 space-y-2 min-h-[80px]" data-date="${iso}">
+            ${list.length === 0 ? `<div class="text-xs text-muted text-center pt-6">—</div>` : ''}
+            ${list.map(e => `
+              <div class="event-card card !p-2.5 !rounded-lg" data-id="${e.id}" onclick="editEvent(${e.id})">
+                <div class="flex items-start gap-2">
+                  <div class="w-1 h-full min-h-[32px] rounded-full shrink-0 mt-0.5" style="background:${e.color || '#1f6feb'}"></div>
+                  <div class="min-w-0 flex-1">
+                    ${e.time ? `<div class="text-xs font-mono text-muted mb-0.5">${e.time}</div>` : ''}
+                    <div class="text-sm font-medium leading-snug truncate">${escHtml(e.title)}</div>
+                    ${e.description ? `<div class="text-xs text-muted mt-0.5 line-clamp-2">${escHtml(e.description)}</div>` : ''}
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>`
+      }).join('')
+
+      empty.classList.toggle('hidden', total > 0)
+    }
+
+    function escHtml(s) {
+      if (!s) return ''
+      const d = document.createElement('div')
+      d.textContent = s
+      return d.innerHTML
+    }
+
+    /* ===== MODAL ===== */
+    function openModal(data = null) {
+      const modal = document.getElementById('modal')
+      modal.classList.remove('hidden')
+      modal.classList.add('flex')
+      document.body.style.overflow = 'hidden'
+
+      renderColorPicker(data?.color || '#1f6feb')
+      selectedColor = data?.color || '#1f6feb'
+
+      if (data) {
+        document.getElementById('modalTitle').textContent = 'Edit Acara'
+        document.getElementById('editId').value = data.id
+        document.getElementById('fTitle').value = data.title || ''
+        document.getElementById('fDate').value = data.event_date || todayISO()
+        document.getElementById('fTime').value = data.time || ''
+        document.getElementById('fDesc').value = data.description || ''
+      } else {
+        document.getElementById('modalTitle').textContent = 'Tambah Acara'
+        document.getElementById('editId').value = ''
+        document.getElementById('fTitle').value = ''
+        document.getElementById('fDate').value = todayISO()
+        document.getElementById('fTime').value = ''
+        document.getElementById('fDesc').value = ''
+      }
+      document.getElementById('fTitle').focus()
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('modal')
+      modal.classList.add('hidden')
+      modal.classList.remove('flex')
+      document.body.style.overflow = ''
+    }
+
+    document.getElementById('modal').addEventListener('click', closeModal)
+
+    /* ===== SAVE ===== */
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+      const title = document.getElementById('fTitle').value.trim()
+      const date = document.getElementById('fDate').value
+      const time = document.getElementById('fTime').value
+      const desc = document.getElementById('fDesc').value.trim()
+      const id = document.getElementById('editId').value
+
+      if (!title) { showToast('Judul wajib diisi', 'danger'); return }
+      if (!date) { showToast('Tanggal wajib diisi', 'danger'); return }
+
+      const body = { title, event_date: date, time, description: desc, color: selectedColor }
+      const url = id ? `/api/events/${id}` : '/api/events'
+      const method = id ? 'PATCH' : 'POST'
+
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) throw new Error(await res.text())
+        closeModal()
+        showToast(id ? 'Acara diupdate' : 'Acara ditambahkan', 'success')
+        await loadEvents()
+      } catch (e) {
+        console.error('Save error:', e)
+        showToast('Gagal menyimpan', 'danger')
+      }
+    })
+
+    /* ===== EDIT ===== */
+    window.editEvent = function(id) {
+      const evt = events.find(e => e.id === id)
+      if (evt) openModal(evt)
+    }
+
+    /* ===== DELETE ===== */
+    window.deleteEvent = function(id) {
+      deleteTargetId = id
+      const evt = events.find(e => e.id === id)
+      document.getElementById('deleteText').textContent = `"${evt?.title || 'Acara'}" akan dihapus permanen`
+      document.getElementById('deleteModal').classList.remove('hidden')
+      document.getElementById('deleteModal').classList.add('flex')
+    }
+
+    document.getElementById('confirmDelete').addEventListener('click', async () => {
+      if (!deleteTargetId) return
+      try {
+        const res = await fetch(`/api/events/${deleteTargetId}`, { method: 'DELETE' })
+        if (!res.ok) throw new Error(await res.text())
+        closeDeleteModal()
+        showToast('Acara dihapus', 'success')
+        await loadEvents()
+      } catch (e) {
+        showToast('Gagal menghapus', 'danger')
+      }
+    })
+
+    function closeDeleteModal() {
+      deleteTargetId = null
+      document.getElementById('deleteModal').classList.add('hidden')
+      document.getElementById('deleteModal').classList.remove('flex')
+    }
+    document.getElementById('deleteModal').addEventListener('click', closeDeleteModal)
+
+    /* ===== ADD BUTTON ===== */
+    document.getElementById('addBtn').addEventListener('click', () => openModal())
+
+    /* ===== TOAST ===== */
+    let toastTimer = null
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast')
+      t.textContent = ''
+      const icon = type === 'success' ? 'check-circle' : type === 'danger' ? 'times-circle' : 'info-circle'
+      const bg = type === 'success' ? 'bg-success' : type === 'danger' ? 'bg-danger' : 'bg-primary'
+      t.className = `toast ${bg} text-white text-sm px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-lg`
+      t.innerHTML = `<i class="fas fa-${icon}"></i> ${escHtml(msg)}`
+      t.classList.remove('hidden')
+      clearTimeout(toastTimer)
+      toastTimer = setTimeout(() => t.classList.add('hidden'), 3000)
+    }
+
+    /* ===== WEBSOCKET ===== */
+    function connectWS() {
+      if (ws && ws.readyState === WebSocket.OPEN) return
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+      ws = new WebSocket(`${protocol}//${location.host}/ws/events`)
+
+      ws.onopen = () => { console.log('WS connected') }
+      ws.onmessage = (msg) => {
+        try {
+          const data = JSON.parse(msg.data)
+          if (data.type === 'event') {
+            loadEvents()
+          }
+        } catch (e) {}
+      }
+      ws.onclose = () => {
+        wsReconnectTimer = setTimeout(connectWS, 3000)
+      }
+      ws.onerror = () => { ws?.close() }
+    }
+
+    /* ===== INIT ===== */
+    document.addEventListener('DOMContentLoaded', () => {
+      loadEvents()
+      connectWS()
+    })
+
+    /* ===== KEYBOARD ===== */
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (!document.getElementById('deleteModal').classList.contains('hidden')) closeDeleteModal()
+        else closeModal()
+      }
+    })
+
+    /* ===== MODAL DELETE BUTTON IN EDIT ===== */
+    // Add delete button to edit modal when editing
+    const origOpenModal = window.openModal || openModal
+    // Patch: add delete button to edit modal
+    const saveBtnContainer = document.querySelector('#modal .flex.gap-2.mt-4')
+    const deleteBtn = document.createElement('button')
+    deleteBtn.id = 'deleteInEditBtn'
+    deleteBtn.className = 'flex-none toggle-btn w-10 h-10 rounded-lg flex items-center justify-center text-sm hidden'
+    deleteBtn.innerHTML = '<i class="fas fa-trash-can text-danger"></i>'
+    deleteBtn.title = 'Hapus acara'
+    deleteBtn.addEventListener('click', () => {
+      const id = document.getElementById('editId').value
+      if (id) {
+        closeModal()
+        setTimeout(() => deleteEvent(parseInt(id)), 200)
+      }
+    })
+    saveBtnContainer.prepend(deleteBtn)
+
+    // Override openModal to toggle delete button
+    const _openModal = openModal
+    window.openModal = function(data) {
+      const delBtn = document.getElementById('deleteInEditBtn')
+      if (data) {
+        delBtn.classList.remove('hidden')
+      } else {
+        delBtn.classList.add('hidden')
+      }
+      return _openModal(data)
+    }
+    openModal = window.openModal
+  </script>
+</body>
+</html>
