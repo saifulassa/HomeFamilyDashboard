@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memo 📝 · Tomo Family Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        primary: '#1f6feb',
+        success: '#3fb950',
+        danger: '#f85149',
+        canvas: 'var(--color-canvas)',
+        card: 'var(--color-card)',
+        border: 'var(--color-border)',
+        text: 'var(--color-text)',
+        muted: 'var(--color-muted)',
+      }
+    }
+  }
+}
+</script>
+<style>
+:root {
+  --color-canvas: #f8f9fa; --color-card: #fff; --color-border: #dee2e6;
+  --color-text: #212529; --color-muted: #6c757d;
+  --color-header-bg: #fff; --color-toggle-bg: #e9ecef; --color-toggle-icon: #495057;
+}
+[data-theme="dark"] {
+  --color-canvas: #0d1117; --color-card: #161b22; --color-border: #30363d;
+  --color-text: #c9d1d9; --color-muted: #8b949e;
+  --color-header-bg: #161b22; --color-toggle-bg: #21262d; --color-toggle-icon: #8b949e;
+}
+body { background: var(--color-canvas); color: var(--color-text); transition: background .3s, color .3s; min-height: 100vh; }
+.header-bg { background: var(--color-header-bg); border-bottom: 1px solid var(--color-border); }
+.toggle-btn { background: var(--color-toggle-bg); color: var(--color-toggle-icon); border: 1px solid var(--color-border); }
+.note-card { position: relative; border-radius: 12px; padding: 1rem 1rem 2.5rem; min-height: 120px; cursor: pointer; transition: transform .15s, box-shadow .15s; word-break: break-word; }
+.note-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.note-card.pinned { outline: 2px solid #1f6feb; }
+.note-card .pin-badge { position: absolute; top: 6px; right: 8px; font-size: .75rem; opacity: .7; }
+.note-card .date { position: absolute; bottom: 8px; left: 12px; font-size: .65rem; opacity: .5; }
+.note-card .actions { position: absolute; bottom: 6px; right: 8px; display: flex; gap: 6px; opacity: 0; transition: opacity .15s; }
+.note-card:hover .actions { opacity: 1; }
+.note-card .actions button { width: 26px; height: 26px; border-radius: 6px; border: none; cursor: pointer; font-size: .7rem; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.1); color: inherit; }
+.note-card .actions button:hover { background: rgba(0,0,0,.2); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.modal-box { background: var(--color-card); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.5rem; width: 90%; max-width: 420px; }
+.modal-box textarea { width: 100%; min-height: 100px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-canvas); color: var(--color-text); padding: .75rem; resize: vertical; font-family: inherit; }
+.color-picker { display: flex; gap: 8px; margin: .75rem 0; }
+.color-picker button { width: 32px; height: 32px; border-radius: 8px; border: 2px solid transparent; cursor: pointer; }
+.color-picker button.active { border-color: #1f6feb; }
+@media (min-width: 640px) { .notes-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; } }
+@media (min-width: 1024px) { .notes-grid { grid-template-columns: repeat(3, 1fr); } }
+</style>
+</head>
+<body>
+<header class="header-bg sticky top-0 z-10">
+  <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href="/" class="text-sm text-muted hover:text-text transition"><i class="fas fa-arrow-left"></i></a>
+      <span class="font-semibold">📝 Memo</span>
+      <span class="text-xs text-muted" id="count"></span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="showAddModal()" class="bg-primary hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1.5">
+        <i class="fas fa-plus text-xs"></i> Tambah
+      </button>
+      <button id="themeToggle" class="toggle-btn w-8 h-8 rounded-lg flex items-center justify-center text-sm">
+        <i class="fas fa-moon" id="themeIcon"></i>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-6" id="main">
+  <div class="notes-grid" id="notesGrid"></div>
+  <div id="empty" class="text-center py-16 hidden">
+    <div class="text-4xl mb-3">📝</div>
+    <p class="text-muted">Belum ada memo. Klik <strong>Tambah</strong> untuk buat catatan baru.</p>
+  </div>
+</main>
+
+<!-- Edit/Create Modal -->
+<div id="modal" class="modal-overlay hidden" onclick="closeModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h3 class="font-semibold mb-3" id="modalTitle">Memo Baru</h3>
+    <textarea id="modalContent" placeholder="Tulis memo..." maxlength="500"></textarea>
+    <div class="text-xs text-muted text-right mb-1"><span id="charCount">0</span>/500</div>
+    <div class="color-picker" id="colorPicker">
+      <button data-color="#FEF3C7" style="background:#FEF3C7" class="active" onclick="pickColor(this)"></button>
+      <button data-color="#DCFCE7" style="background:#DCFCE7" onclick="pickColor(this)"></button>
+      <button data-color="#DBEAFE" style="background:#DBEAFE" onclick="pickColor(this)"></button>
+      <button data-color="#FEE2E2" style="background:#FEE2E2" onclick="pickColor(this)"></button>
+    </div>
+    <div class="flex gap-2 justify-end mt-3">
+      <button onclick="closeModal()" class="px-3 py-1.5 rounded-lg text-sm border border-border hover:bg-canvas transition">Batal</button>
+      <button id="modalSave" onclick="saveMemo()" class="px-3 py-1.5 rounded-lg text-sm bg-primary text-white hover:bg-blue-600 transition">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Theme ──
+const STORAGE_KEY = 'tomo-theme'
+function setTheme(t, p=true) {
+  document.documentElement.setAttribute('data-theme', t)
+  document.documentElement.classList.toggle('dark', t==='dark')
+  document.getElementById('themeIcon').className = t==='dark' ? 'fas fa-sun' : 'fas fa-moon'
+  if (p) localStorage.setItem(STORAGE_KEY, t)
+}
+function toggleTheme() { setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark') }
+;(() => {
+  const s = localStorage.getItem(STORAGE_KEY)
+  if (s) setTheme(s, false)
+  else setTheme(new Date().toLocaleString('en-US',{timeZone:'Asia/Jakarta',hour:'2-digit',hour12:false})>=18||
+    new Date().toLocaleString('en-US',{timeZone:'Asia/Jakarta',hour:'2-digit',hour12:false})<6?'dark':'light', false)
+})()
+document.getElementById('themeToggle').addEventListener('click', toggleTheme)
+
+// ── State ──
+let memos = []
+let editingId = null
+let selectedColor = '#FEF3C7'
+let ws = null
+
+const COLORS = { '#FEF3C7':'bg-yellow-100', '#DCFCE7':'bg-green-100', '#DBEAFE':'bg-blue-100', '#FEE2E2':'bg-red-100' }
+const DARK_COLORS = { '#FEF3C7':'#3d3520', '#DCFCE7':'#1a3d2a', '#DBEAFE':'#1a2d4a', '#FEE2E2':'#3d2020' }
+
+// ── API ──
+async function api(method, url, body) {
+  const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: body ? JSON.stringify(body) : undefined })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+// ── Render ──
+function render() {
+  const grid = document.getElementById('notesGrid')
+  const empty = document.getElementById('empty')
+  document.getElementById('count').textContent = `(${memos.length})`
+
+  if (!memos.length) { grid.innerHTML = ''; empty.classList.remove('hidden'); return }
+  empty.classList.add('hidden')
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+  grid.innerHTML = memos.map(m => {
+    const bg = COLORS[m.color] || 'bg-yellow-100'
+    const darkBg = DARK_COLORS[m.color] || '#3d3520'
+    const style = isDark ? `background:${darkBg};color:#c9d1d9` : ''
+    return `<div class="note-card ${m.is_pinned?'pinned':''}" style="${style}${!isDark?'background:'+m.color:''}" onclick="editMemo(${m.id})">
+      ${m.is_pinned?'<span class="pin-badge">📌</span>':''}
+      <div class="text-sm leading-relaxed whitespace-pre-wrap">${escHtml(m.content)}</div>
+      <div class="date">${formatDate(m.created_at)}</div>
+      <div class="actions">
+        <button onclick="event.stopPropagation();togglePin(${m.id},${m.is_pinned})" title="${m.is_pinned?'Unpin':'Pin'}"><i class="fas fa-thumbtack"></i></button>
+        <button onclick="event.stopPropagation();deleteMemo(${m.id})" title="Hapus"><i class="fas fa-trash-can"></i></button>
+      </div>
+    </div>`
+  }).join('')
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function formatDate(d) {
+  const date = new Date(d + (d.includes('T')?'':'T00:00:00+07:00'))
+  return date.toLocaleDateString('id-ID', { day:'numeric', month:'short' })
+}
+
+// ── Load ──
+async function load() {
+  try {
+    const res = await api('GET', '/api/memos')
+    memos = res.data
+    render()
+  } catch(e) { console.error('load err', e) }
+}
+load()
+
+// ── Modal ──
+function showAddModal() {
+  editingId = null
+  selectedColor = '#FEF3C7'
+  document.getElementById('modalTitle').textContent = 'Memo Baru'
+  document.getElementById('modalContent').value = ''
+  document.getElementById('charCount').textContent = '0'
+  document.getElementById('modalSave').textContent = 'Simpan'
+  document.querySelectorAll('.color-picker button').forEach(b => b.classList.toggle('active', b.dataset.color === selectedColor))
+  document.getElementById('modal').classList.remove('hidden')
+  document.getElementById('modalContent').focus()
+}
+
+function editMemo(id) {
+  const m = memos.find(x => x.id === id)
+  if (!m) return
+  editingId = id
+  selectedColor = m.color
+  document.getElementById('modalTitle').textContent = 'Edit Memo'
+  document.getElementById('modalContent').value = m.content
+  document.getElementById('charCount').textContent = m.content.length
+  document.getElementById('modalSave').textContent = 'Update'
+  document.querySelectorAll('.color-picker button').forEach(b => b.classList.toggle('active', b.dataset.color === selectedColor))
+  document.getElementById('modal').classList.remove('hidden')
+  document.getElementById('modalContent').focus()
+}
+
+function closeModal(e) { if (!e || e.target.classList.contains('modal-overlay')) document.getElementById('modal').classList.add('hidden') }
+function pickColor(el) { document.querySelectorAll('.color-picker button').forEach(b => b.classList.remove('active')); el.classList.add('active'); selectedColor = el.dataset.color }
+
+document.getElementById('modalContent').addEventListener('input', function() {
+  document.getElementById('charCount').textContent = this.value.length
+})
+
+async function saveMemo() {
+  const content = document.getElementById('modalContent').value.trim()
+  if (!content) return
+  try {
+    if (editingId) {
+      await api('PATCH', `/api/memos/${editingId}`, { content, color: selectedColor })
+    } else {
+      await api('POST', '/api/memos', { content, color: selectedColor })
+    }
+    document.getElementById('modal').classList.add('hidden')
+    await load()
+  } catch(e) { alert('Gagal simpan memo') }
+}
+
+async function deleteMemo(id) {
+  if (!confirm('Hapus memo ini?')) return
+  try {
+    await api('DELETE', `/api/memos/${id}`)
+    await load()
+  } catch(e) { alert('Gagal hapus memo') }
+}
+
+async function togglePin(id, current) {
+  try {
+    await api('PATCH', `/api/memos/${id}`, { is_pinned: !current })
+    await load()
+  } catch(e) { alert('Gagal update pin') }
+}
+
+// ── WS ──
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+  ws = new WebSocket(`${proto}//${location.host}/ws/memo`)
+  ws.onmessage = () => load()
+  ws.onclose = () => setTimeout(connectWS, 3000)
+}
+connectWS()
+</script>
+</body>
+</html>
