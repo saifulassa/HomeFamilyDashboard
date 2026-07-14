@@ -7,6 +7,8 @@ export function createTables() {
       title TEXT NOT NULL,
       description TEXT DEFAULT '',
       event_date TEXT NOT NULL,
+      time TEXT DEFAULT '',
+      color TEXT DEFAULT '#1f6feb',
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT DEFAULT (datetime('now', 'localtime'))
     )
@@ -127,6 +129,14 @@ export function createTables() {
 
   for (const sql of indexes) {
     db.run(sql)
+  }
+
+  // Migration: add columns for existing DBs
+  const cols = db.query("PRAGMA table_info('events')").all() as { name: string }[]
+  const hasTime = cols.some((c) => c.name === 'time')
+  if (!hasTime) {
+    db.run("ALTER TABLE events ADD COLUMN time TEXT DEFAULT ''")
+    db.run("ALTER TABLE events ADD COLUMN color TEXT DEFAULT '#1f6feb'")
   }
 }
 
