@@ -183,3 +183,22 @@ export function seedChecklists() {
     (4, 'Bayar internet', 'monthly', 3)
   `)
 }
+
+// Seed stock items
+export function seedStock() {
+  const count = db.query('SELECT COUNT(*) as c FROM stock_items').get() as { c: number }
+  if (count.c > 0) return
+
+  db.run(`INSERT INTO stock_items (name, category, current_qty, min_threshold, unit) VALUES
+    ('Beras', 'Makanan', 5, 2, 'kg'),
+    ('Minyak Goreng', 'Makanan', 3, 1, 'L'),
+    ('Gula', 'Makanan', 2, 1, 'kg'),
+    ('Telur', 'Makanan', 12, 6, 'butir'),
+    ('Sabun Mandi', 'Sanitasi', 3, 2, 'pcs'),
+    ('Shampoo', 'Sanitasi', 2, 1, 'botol'),
+    ('Pasta Gigi', 'Sanitasi', 2, 1, 'pcs'),
+    ('Sabun Cuci Piring', 'Sanitasi', 1, 1, 'pcs'),
+    ('Tissue', 'Lainnya', 4, 2, 'pak'),
+    ('Kantong Sampah', 'Lainnya', 10, 5, 'lembar')
+  `)
+}

@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
 import { join } from 'node:path'
-import { createTables, seedDefaults, seedChecklists } from './db/schema'
+import { createTables, seedDefaults, seedChecklists, seedStock } from './db/schema'
 import { healthCheck } from './routes/health'
 import { broadcast, setServer } from './ws'
 import db from './db/db'
@@ -9,6 +9,7 @@ import db from './db/db'
 createTables()
 seedDefaults()
 seedChecklists()
+seedStock()
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001
 
@@ -198,6 +199,70 @@ const app = new Elysia()
     )
     broadcast({ type: 'checklist_toggle', action: 'check', itemId: Number(itemId), checklistId: Number(id), completed_by: name }, 'checklist')
     return { data: { id: itemId, completed: true, completed_by: name } }
+  })
+
+  // ── Stock ──────────────────────────────────────────────────
+
+  .ws('/ws/stock', {
+    open(ws) { ws.subscribe('stock') },
+    message(ws, msg) { ws.send(msg) },
+  })
+
+  .get('/api/stock', () => {
+    const rows = db.query('SELECT * FROM stock_items ORDER BY category ASC, name ASC').all() as any[]
+    const data = rows.map((r) => ({
+      ...r,
+      status: r.current_qty > r.min_threshold ? 'green'
+        : r.current_qty > 0 ? 'yellow'
+        : 'red'
+    }))
+    return { data }
+  })
+
+  .post('/api/stock', (ctx) => {
+    const { name, category, current_qty, min_threshold, unit } = ctx.body as any
+    const r = db.run(
+      'INSERT INTO stock_items (name, category, current_qty, min_threshold, unit) VALUES (?, ?, ?, ?, ?)',
+      name, category || 'Lainnya', current_qty || 0, min_threshold || 1, unit || 'pcs'
+    )
+    const item = db.query('SELECT * FROM stock_items WHERE id = ?').get(r.lastInsertRowid)
+    broadcast({ type: 'stock', action: 'create', item }, 'stock')
+    return { data: item }
+  })
+
+  .patch('/api/stock/:id', (ctx) => {
+    const id = ctx.params.id
+    const { name, category, current_qty, min_threshold, unit } = ctx.body as any
+    if (name !== undefined) db.run('UPDATE stock_items SET name = ? WHERE id = ?', name, id)
+    if (category !== undefined) db.run('UPDATE stock_items SET category = ? WHERE id = ?', category, id)
+    if (current_qty !== undefined) db.run('UPDATE stock_items SET current_qty = ? WHERE id = ?', current_qty, id)
+    if (min_threshold !== undefined) db.run('UPDATE stock_items SET min_threshold = ? WHERE id = ?', min_threshold, id)
+    if (unit !== undefined) db.run('UPDATE stock_items SET unit = ? WHERE id = ?', unit, id)
+    db.run("UPDATE stock_items SET updated_at = datetime('now', 'localtime') WHERE id = ?", id)
+    const item = db.query('SELECT * FROM stock_items WHERE id = ?').get(id)
+    broadcast({ type: 'stock', action: 'update', item }, 'stock')
+    return { data: item }
+  })
+
+  .delete('/api/stock/:id', (ctx) => {
+    const id = ctx.params.id
+    db.run('DELETE FROM stock_items WHERE id = ?', id)
+    broadcast({ type: 'stock', action: 'delete', id: Number(id) }, 'stock')
+    return { success: true }
+  })
+
+  .post('/api/stock/:id/adjust', (ctx) => {
+    const id = ctx.params.id
+    const { delta } = ctx.body as any
+    const item = db.query('SELECT * FROM stock_items WHERE id = ?').get(id) as any
+    if (!item) return new Response('Not Found', { status: 404 })
+    const newQty = Math.max(0, (item.current_qty || 0) + (delta || 0))
+    db.run('UPDATE stock_items SET current_qty = ?, updated_at = datetime(\'now\', \'localtime\') WHERE id = ?', newQty, id)
+    const updated = db.query('SELECT * FROM stock_items WHERE id = ?').get(id) as any
+    updated.status = updated.current_qty > updated.min_threshold ? 'green'
+      : updated.current_qty > 0 ? 'yellow' : 'red'
+    broadcast({ type: 'stock', action: 'adjust', item: updated }, 'stock')
+    return { data: updated }
   })
 
   // ── Settings ────────────────────────────────────────────────
