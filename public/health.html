@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kesehatan — Tomo Family Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script>
+tailwind.config={darkMode:'class',theme:{extend:{colors:{primary:'#1f6feb',success:'#3fb950',danger:'#f85149',canvas:'var(--color-canvas)',card:'var(--color-card)',border:'var(--color-border)',text:'var(--color-text)',muted:'var(--color-muted)'}}}}
+</script>
+<style>
+:root{--color-canvas:#f8f9fa;--color-card:#ffffff;--color-border:#dee2e6;--color-text:#212529;--color-muted:#6c757d;--color-header-bg:#ffffff;--color-card-hover:#f1f3f5}
+[data-theme="dark"]{--color-canvas:#0d1117;--color-card:#161b22;--color-border:#30363d;--color-text:#c9d1d9;--color-muted:#8b949e;--color-header-bg:#161b22;--color-card-hover:#1c2128}
+body{background:var(--color-canvas);color:var(--color-text);transition:background .3s,color .3s;min-height:100vh;font-family:system-ui,-apple-system,sans-serif}
+.card{background:var(--color-card);border:1px solid var(--color-border);border-radius:10px;padding:1rem;transition:background .2s}
+.card-clickable{cursor:pointer}.card-clickable:hover{background:var(--color-card-hover)}
+.header-bg{background:var(--color-header-bg);border-bottom:1px solid var(--color-border)}
+.module-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem}
+.pin-overlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center}
+.pin-card{background:var(--color-card);border:1px solid var(--color-border);border-radius:16px;padding:2rem;width:320px;text-align:center}
+.pin-input{width:64px;height:80px;font-size:2rem;text-align:center;background:var(--color-canvas);border:2px solid var(--color-border);border-radius:12px;color:var(--color-text);outline:none;transition:border-color .2s}
+.pin-input:focus{border-color:var(--primary)}.pin-input.error{border-color:var(--danger)}
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--color-border);transition:all .2s}
+.pin-dot.filled{background:var(--primary);border-color:var(--primary)}
+.tab{display:none}.tab.active{display:block}
+.tab-btn{padding:.5rem 1rem;border-radius:8px;border:1px solid var(--color-border);background:var(--color-card);color:var(--color-muted);cursor:pointer;font-size:.85rem;transition:all .2s}
+.tab-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.data-table{width:100%;border-collapse:collapse;font-size:.875rem}
+.data-table th{text-align:left;padding:.5rem .75rem;border-bottom:2px solid var(--color-border);color:var(--color-muted);font-weight:600}
+.data-table td{padding:.5rem .75rem;border-bottom:1px solid var(--color-border)}
+.badge{padding:.15rem .6rem;border-radius:999px;font-size:.75rem;font-weight:500;display:inline-block}
+.badge-success{background:rgba(63,185,80,.15);color:#3fb950}
+.badge-warning{background:rgba(210,153,34,.15);color:#d29922}
+.badge-danger{background:rgba(248,81,73,.15);color:#f85149}
+@media(max-width:640px){.pin-card{width:90%;margin:1rem}.data-table{font-size:.8rem}}
+</style>
+</head>
+<body>
+
+<!-- PIN Overlay -->
+<div id="pinOverlay" class="pin-overlay">
+  <div class="pin-card">
+    <div class="w-12 h-12 rounded-xl bg-danger/20 flex items-center justify-center mx-auto mb-4">
+      <i class="fas fa-lock text-danger text-xl"></i>
+    </div>
+    <h2 class="text-lg font-semibold mb-1">PIN Kesehatan</h2>
+    <p class="text-sm text-muted mb-6">Masukkan PIN untuk akses data kesehatan</p>
+    <div class="flex justify-center gap-3 mb-4" id="pinDots">
+      <div class="pin-dot" data-i="0"></div>
+      <div class="pin-dot" data-i="1"></div>
+      <div class="pin-dot" data-i="2"></div>
+      <div class="pin-dot" data-i="3"></div>
+      <div class="pin-dot" data-i="4"></div>
+      <div class="pin-dot" data-i="5"></div>
+    </div>
+    <input id="pinInput" type="password" inputmode="numeric" maxlength="6" class="pin-input mx-auto block" autofocus>
+    <p id="pinError" class="text-danger text-sm mt-3 hidden">PIN salah. Coba lagi.</p>
+    <p class="text-xs text-muted mt-2">3 percobaan — 5 menit blokir</p>
+  </div>
+</div>
+
+<!-- Header -->
+<header class="header-bg sticky top-0 z-10">
+  <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <a href="/" class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm hover:opacity-80"><i class="fas fa-arrow-left text-xs"></i></a>
+      <span class="font-semibold">Kesehatan Keluarga</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-muted" id="pinStatus"><i class="fas fa-lock-open text-success"></i> Terbuka</span>
+      <button id="lockBtn" class="text-xs text-muted hover:text-text px-2 py-1 rounded-lg hover:bg-card-hover"><i class="fas fa-lock"></i> Kunci</button>
+    </div>
+  </div>
+</header>
+
+<!-- Main -->
+<main class="max-w-6xl mx-auto px-4 py-6" id="appContent" style="display:none">
+
+  <!-- Profile Cards -->
+  <section id="profileSection">
+    <h3 class="text-sm font-semibold text-muted uppercase tracking-wider mb-3">Anggota Keluarga</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" id="profileCards"></div>
+  </section>
+
+  <!-- Detail Panel -->
+  <section id="detailSection" class="mt-6" style="display:none">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <button id="backBtn" class="text-sm text-muted hover:text-text"><i class="fas fa-arrow-left mr-1"></i>Kembali</button>
+        <h3 class="text-lg font-semibold mt-1" id="detailName"></h3>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-2 mb-4 flex-wrap" id="tabButtons">
+      <button class="tab-btn active" data-tab="measurements"><i class="fas fa-weight mr-1"></i>Pengukuran</button>
+      <button class="tab-btn" data-tab="immunizations"><i class="fas fa-syringe mr-1"></i>Imunisasi</button>
+      <button class="tab-btn" data-tab="growth"><i class="fas fa-chart-line mr-1"></i>Tumbuh Kembang</button>
+    </div>
+
+    <div class="card p-4">
+      <!-- Measurements Tab -->
+      <div class="tab active" id="tab-measurements">
+        <div class="flex justify-between items-center mb-3">
+          <h4 class="font-semibold text-sm">Riwayat Pengukuran</h4>
+          <button id="addMeasurementBtn" class="text-xs bg-primary text-white px-3 py-1.5 rounded-lg"><i class="fas fa-plus mr-1"></i>Tambah</button>
+        </div>
+        <div class="flex gap-2 mb-3 flex-wrap">
+          <button class="filter-btn text-xs px-3 py-1 rounded-lg border border-border text-muted active" data-type="">Semua</button>
+          <button class="filter-btn text-xs px-3 py-1 rounded-lg border border-border text-muted" data-type="weight"><i class="fas fa-weight mr-1"></i>Berat</button>
+          <button class="filter-btn text-xs px-3 py-1 rounded-lg border border-border text-muted" data-type="height"><i class="fas fa-ruler mr-1"></i>Tinggi</button>
+          <button class="filter-btn text-xs px-3 py-1 rounded-lg border border-border text-muted" data-type="bp"><i class="fas fa-heart mr-1"></i>Tek. Darah</button>
+        </div>
+        <div class="overflow-x-auto"><table class="data-table"><thead><tr>
+          <th>Tanggal</th><th>Tipe</th><th>Nilai</th><th>Catatan</th>
+        </tr></thead><tbody id="measurementsBody"></tbody></table></div>
+        <p id="measurementsEmpty" class="text-sm text-muted text-center py-8">Belum ada data pengukuran</p>
+      </div>
+
+      <!-- Immunizations Tab -->
+      <div class="tab" id="tab-immunizations">
+        <div class="flex justify-between items-center mb-3">
+          <h4 class="font-semibold text-sm">Riwayat Imunisasi</h4>
+          <button id="addImmunizationBtn" class="text-xs bg-primary text-white px-3 py-1.5 rounded-lg"><i class="fas fa-plus mr-1"></i>Tambah</button>
+        </div>
+        <div class="overflow-x-auto"><table class="data-table"><thead><tr>
+          <th>Tanggal</th><th>Vaksin</th><th>Selanjutnya</th><th>Catatan</th>
+        </tr></thead><tbody id="immunizationsBody"></tbody></table></div>
+        <p id="immunizationsEmpty" class="text-sm text-muted text-center py-8">Belum ada imunisasi</p>
+      </div>
+
+      <!-- Growth Tab -->
+      <div class="tab" id="tab-growth">
+        <h4 class="font-semibold text-sm mb-1">Grafik Berat Badan (WHO)</h4>
+        <p class="text-xs text-muted mb-3">Berat badan menurut usia — standar WHO</p>
+        <div class="flex gap-2 mb-3">
+          <button id="growthSex" class="text-xs px-3 py-1 rounded-lg border border-border text-muted bg-card">Laki-laki</button>
+        </div>
+        <div class="relative w-full overflow-x-auto">
+          <canvas id="growthCanvas" width="720" height="400" class="w-full" style="max-width:720px;height:auto;aspect-ratio:720/400"></canvas>
+        </div>
+        <p id="growthEmpty" class="text-sm text-muted text-center py-4 hidden">Belum ada data berat untuk grafik</p>
+        <div class="flex gap-4 mt-2 text-xs text-muted flex-wrap">
+          <span><span class="inline-block w-3 h-0.5 bg-red-500 mr-1 align-middle"></span>+3 SD</span>
+          <span><span class="inline-block w-3 h-0.5 bg-orange-500 mr-1 align-middle"></span>+2 SD</span>
+          <span><span class="inline-block w-3 h-0.5 bg-green-500 mr-1 align-middle"></span>Median</span>
+          <span><span class="inline-block w-3 h-0.5 bg-orange-500 mr-1 align-middle"></span>-2 SD</span>
+          <span><span class="inline-block w-3 h-0.5 bg-red-500 mr-1 align-middle"></span>-3 SD</span>
+          <span><span class="inline-block w-3 h-0.5 bg-primary mr-1 align-middle"></span>Data</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Add Measurement Modal -->
+<div id="measurementModal" class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center" style="display:none">
+  <div class="card p-5 w-full max-w-sm mx-4">
+    <h3 class="font-semibold mb-4">Tambah Pengukuran</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-muted block mb-1">Tipe</label>
+        <select id="mType" class="w-full p-2 rounded-lg bg-canvas border border-border text-text text-sm">
+          <option value="weight">Berat (kg)</option>
+          <option value="height">Tinggi (cm)</option>
+          <option value="bp">Tekanan Darah</option>
+        </select>
+      </div>
+      <div id="mWeightGroup">
+        <label class="text-xs text-muted block mb-1">Berat (kg)</label>
+        <input id="mWeight" type="number" step="0.1" class="w-full p-2 rounded-lg bg-canvas border border-border text-text text-sm">
+      </div>
+      <div id="mHeightGroup" style="display:none">
+        <label class="text-xs text-muted block mb-1">Tinggi (cm)</label>
+        <input id="mHeight" type="number" step="0.1" class="w-full p-2 rounded-lg bg-canvas border border-border text-text text-sm">
+      </div>
+      <div id="mBPGroup" style="display:none">
+        <label class="text-xs text-muted block mb-1">Sistolik / Diastolik</label>
+        <div class="flex gap-2">
+          <input id="mSystolic" type="number" placeholder="120" class="flex-1 p-2 rounded-lg bg-canvas border border-border text-text text-sm">
+          <input id="mDiastolic" type="number" placeholder="80" class="flex-1 p-2 rounded-lg bg-canvas border border-border text-text text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-muted block mb-1">Tanggal</label>
+        <input id="mDate" type="date" class="w-full p-2 rounded-lg bg-canvas border border-border text-text text-sm">
+      </div>
+      <div>
+        <label class="text-xs text-muted block mb-1">Catatan</label>
+        <input id="mNotes" class="w-full p-2 rounded-lg bg-canvas border border-border text-text text-sm" placeholder="Opsional">
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button id="mCancel" class="flex-1 p-2 rounded-lg border border-border text-text text-sm">Batal</button>
+      <button id="mSave" class="flex-1 p-2 rounded-lg bg-primary text-white text-sm font-medium">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Immunization Modal -->
+<div id="immunizationModal" class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center" style="display:none">
+  <div class="card p-5 w-full max-w-sm mx-4">
+    <h3 class="font-semibold mb-4">Tambah Imunisasi</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-muted block mb-1">Vaksin</label>
+        <input id="iVaccine" class="w-full p-2 rounded-lg bg-canvas border border-border text-text text-sm" placeholder="Contoh: Polio 1">
+      </div>
+      <div>
+        <label class="text-xs text-muted block mb-1">Tanggal</label>
+        <input id="iDate" type="date" class="w-full p-2 rounded-lg bg-canvas border border-border text-text text-sm">
+      </div>
+      <div>
+        <label class="text-xs text-muted block mb-1">Tanggal berikutnya</label>
+        <input id="iNext" type="date" class="w-full p-2 rounded-lg bg-canvas border border-border text-text text-sm">
+      </div>
+      <div>
+        <label class="text-xs text-muted block mb-1">Catatan</label>
+        <input id="iNotes" class="w-full p-2 rounded-lg bg-canvas border border-border text-text text-sm" placeholder="Reaksi / tempat / dll">
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button id="iCancel" class="flex-1 p-2 rounded-lg border border-border text-text text-sm">Batal</button>
+      <button id="iSave" class="flex-1 p-2 rounded-lg bg-primary text-white text-sm font-medium">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── WHO Growth Reference Data ─────────────────────────────
+// WHO weight-for-age M (median) and S (CV) for boys, months 0–60
+// Interpolated for gaps. L=0 approximation: value = M*exp(S*Z)
+const WHO = {
+  M: [3.35,4.35,5.16,5.79,6.28,6.67,7.00,7.28,7.54,7.77,7.97,8.16,8.33,8.49,8.63,8.77,8.91,9.04,9.16,9.28,9.40,9.53,9.65,9.78,9.90,10.03,10.15,10.27,10.39,10.50,10.62,10.74,10.86,10.98,11.10,11.22,11.34,11.46,11.58,11.70,11.82,11.94,12.06,12.18,12.30,12.42,12.54,12.66,12.78,12.90,13.02,13.14,13.26,13.38,13.50,13.62,13.74,13.86,13.98,14.10,14.22],
+  S: [0.146,0.139,0.134,0.129,0.125,0.121,0.118,0.116,0.114,0.112,0.111,0.110,0.109,0.108,0.108,0.107,0.107,0.107,0.107,0.107,0.108,0.108,0.109,0.109,0.111,0.112,0.113,0.114,0.115,0.117,0.118,0.119,0.121,0.122,0.123,0.125,0.126,0.127,0.129,0.130,0.131,0.132,0.134,0.135,0.136,0.137,0.139,0.140,0.141,0.142,0.143,0.144,0.145,0.146,0.147,0.148,0.149,0.150,0.151,0.152,0.153]
+}
+function whoLine(month, z, mArr, sArr) {
+  const i = Math.max(0, Math.min(Math.round(month), mArr.length-1))
+  return mArr[i] * Math.exp(sArr[i] * z)
+}
+
+// ── State ────────────────────────────────────────────────
+let profiles = []
+let currentProfileId = null
+let pinToken = localStorage.getItem('healthToken')
+let inactivityTimer = null
+const INACTIVITY_MS = 5*60*1000 // 5 min
+let pinAttempts = 0
+
+// ── PIN ──────────────────────────────────────────────────
+const pinOverlay = document.getElementById('pinOverlay')
+const pinInput = document.getElementById('pinInput')
+const pinDots = document.querySelectorAll('.pin-dot')
+const pinError = document.getElementById('pinError')
+const appContent = document.getElementById('appContent')
+
+function showPin() { pinOverlay.style.display='flex'; appContent.style.display='none'; pinInput.value=''; pinInput.focus(); updateDots(); pinError.classList.add('hidden'); document.getElementById('pinStatus').innerHTML='<i class="fas fa-lock text-danger"></i> Terkunci' }
+function hidePin() { pinOverlay.style.display='none'; appContent.style.display='block'; document.getElementById('pinStatus').innerHTML='<i class="fas fa-lock-open text-success"></i> Terbuka'; resetInactivity() }
+function updateDots() { const v=pinInput.value.length; pinDots.forEach((d,i)=>d.classList.toggle('filled',i<v)) }
+
+async function verifyPin(pin) {
+  try {
+    const r = await fetch('/api/pin/verify', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({pin})})
+    const d = await r.json()
+    if (d.success) {
+      pinToken = d.token
+      localStorage.setItem('healthToken', d.token)
+      pinAttempts = 0
+      hidePin()
+      loadData()
+    } else {
+      pinAttempts++
+      pinInput.classList.add('error')
+      pinError.textContent = d.error || 'PIN salah'
+      pinError.classList.remove('hidden')
+      setTimeout(()=>pinInput.classList.remove('error'), 500)
+      pinInput.value = ''; updateDots()
+      if (pinAttempts >= 3) { pinError.textContent = 'Terlalu banyak percobaan. Tunggu 5 menit.'; pinInput.disabled = true; setTimeout(()=>{pinInput.disabled=false;pinAttempts=0},300000) }
+    }
+  } catch(e) {
+    pinError.textContent = 'Gagal verifikasi'
+    pinError.classList.remove('hidden')
+  }
+}
+
+pinInput.addEventListener('input', () => {
+  updateDots()
+  if (pinInput.value.length === 6) verifyPin(pinInput.value)
+})
+
+// ── Inactivity Timer ─────────────────────────────────────
+function resetInactivity() {
+  clearTimeout(inactivityTimer)
+  inactivityTimer = setTimeout(() => {
+    pinToken = null; localStorage.removeItem('healthToken'); showPin()
+  }, INACTIVITY_MS)
+}
+document.addEventListener('click', resetInactivity)
+document.addEventListener('keydown', resetInactivity)
+document.addEventListener('touchstart', resetInactivity)
+
+document.getElementById('lockBtn').addEventListener('click', () => {
+  pinToken = null; localStorage.removeItem('healthToken'); showPin()
+})
+
+// ── Init PIN ─────────────────────────────────────────────
+if (!pinToken) { showPin() } else { hidePin() }
+
+// ── Load Data ────────────────────────────────────────────
+async function fetchJSON(url) { const r=await fetch(url); return r.json() }
+
+async function loadData() {
+  const d = await fetchJSON('/api/health/profiles')
+  profiles = d.data
+  renderProfiles()
+  if (currentProfileId) {
+    const p = profiles.find(x=>x.id===currentProfileId)
+    if (p) showDetail(p); else currentProfileId=null
+  }
+}
+
+// ── Profile Cards ───────────────────────────────────────
+function renderProfiles() {
+  const c = document.getElementById('profileCards')
+  c.innerHTML = profiles.map(p => {
+    const bp = p.latestBP, w = p.latestWeight, h = p.latestHeight
+    const bpStr = bp ? `${bp.systolic}/${bp.diastolic}` : '—'
+    const wStr = w ? `${w.value} kg` : '—'
+    const hStr = h ? `${h.value} cm` : '—'
+    const icon = p.gender === 'P' ? 'fa-person-dress' : 'fa-person'
+    const color = p.gender === 'P' ? '#bc8cff' : '#1f6feb'
+    return `<div class="card card-clickable" data-id="${p.id}" onclick="showDetailById(${p.id})">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="module-icon" style="background:${color}20;color:${color}"><i class="fas ${icon}"></i></div>
+        <div><h3 class="font-semibold text-sm">${p.name}</h3><p class="text-xs text-muted capitalize">${p.role}</p></div>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center text-xs pt-2 border-t border-border mt-2">
+        <div><div class="text-muted">Tek. Darah</div><div class="font-medium">${bpStr}</div></div>
+        <div><div class="text-muted">Berat</div><div class="font-medium">${wStr}</div></div>
+        <div><div class="text-muted">Tinggi</div><div class="font-medium">${hStr}</div></div>
+      </div>
+    </div>`
+  }).join('')
+}
+
+function showDetailById(id) {
+  const p = profiles.find(x=>x.id===id); if(p) showDetail(p)
+}
+function showDetail(p) {
+  currentProfileId = p.id
+  document.getElementById('detailSection').style.display = 'block'
+  document.getElementById('detailName').textContent = `${p.name} (${p.role})`
+  loadMeasurements(p.id); loadImmunizations(p.id); loadGrowth(p.id)
+  switchTab('measurements')
+}
+document.getElementById('backBtn').addEventListener('click', () => {
+  currentProfileId = null; document.getElementById('detailSection').style.display = 'none'
+})
+
+// ── Tabs ─────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'))
+    btn.classList.add('active')
+    switchTab(btn.dataset.tab)
+  })
+})
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'))
+  document.getElementById(`tab-${name}`).classList.add('active')
+}
+
+// ── Measurements ─────────────────────────────────────────
+let measurementFilter = ''
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'))
+    btn.classList.add('active')
+    measurementFilter = btn.dataset.type
+    loadMeasurements(currentProfileId)
+  })
+})
+
+async function loadMeasurements(pid) {
+  const url = measurementFilter ? `/api/health/profiles/${pid}/measurements?type=${measurementFilter}` : `/api/health/profiles/${pid}/measurements`
+  const d = await fetchJSON(url); const rows = d.data
+  const tbody = document.getElementById('measurementsBody'); const empty = document.getElementById('measurementsEmpty')
+  if (!rows.length) { tbody.innerHTML=''; empty.style.display='block'; return }
+  empty.style.display='none'
+  tbody.innerHTML = rows.map(r => {
+    let val, label
+    if (r.type==='weight') { val=`${r.value} kg`; label='Berat' }
+    else if (r.type==='height') { val=`${r.value} cm`; label='Tinggi' }
+    else if (r.type==='bp') { val=`${r.systolic||'?'}/${r.diastolic||'?'}`; label='Tek. Darah' }
+    else { val=r.value||'—'; label=r.type }
+    return `<tr><td>${r.date}</td><td><span class="badge badge-success">${label}</span></td><td class="font-medium">${val}</td><td class="text-muted text-xs">${r.notes||''}</td></tr>`
+  }).join('')
+}
+
+// ── Measurement Modal ────────────────────────────────────
+const mModal = document.getElementById('measurementModal')
+document.getElementById('addMeasurementBtn').addEventListener('click', () => {
+  document.getElementById('mDate').value = new Date().toISOString().split('T')[0]
+  mModal.style.display = 'flex'
+})
+document.getElementById('mCancel').addEventListener('click', () => mModal.style.display='none')
+document.getElementById('mSave').addEventListener('click', async () => {
+  const type = document.getElementById('mType').value
+  const body = {type, date: document.getElementById('mDate').value, notes: document.getElementById('mNotes').value}
+  if (type==='weight') body.value=parseFloat(document.getElementById('mWeight').value)
+  else if (type==='height') body.value=parseFloat(document.getElementById('mHeight').value)
+  else if (type==='bp') { body.systolic=parseInt(document.getElementById('mSystolic').value); body.diastolic=parseInt(document.getElementById('mDiastolic').value) }
+  try {
+    await fetch(`/api/health/profiles/${currentProfileId}/measurements`, {method:'POST',headers:{'Content-Type':'application/json','x-pin-token':pinToken},body:JSON.stringify(body)})
+    mModal.style.display='none'; loadMeasurements(currentProfileId); loadGrowth(currentProfileId); loadData()
+  } catch(e) { alert('Gagal simpan') }
+})
+document.getElementById('mType').addEventListener('change', function() {
+  document.getElementById('mWeightGroup').style.display=this.value==='weight'?'block':'none'
+  document.getElementById('mHeightGroup').style.display=this.value==='height'?'block':'none'
+  document.getElementById('mBPGroup').style.display=this.value==='bp'?'block':'none'
+})
+
+// ── Immunizations ────────────────────────────────────────
+async function loadImmunizations(pid) {
+  const d = await fetchJSON(`/api/health/profiles/${pid}/immunizations`); const rows = d.data
+  const tbody = document.getElementById('immunizationsBody'); const empty = document.getElementById('immunizationsEmpty')
+  if (!rows.length) { tbody.innerHTML=''; empty.style.display='block'; return }
+  empty.style.display='none'
+  tbody.innerHTML = rows.map(r => `<tr><td>${r.date}</td><td class="font-medium">${r.vaccine_name}</td><td>${r.next_due||'—'}</td><td class="text-muted text-xs">${r.notes||''}</td></tr>`).join('')
+}
+
+const iModal = document.getElementById('immunizationModal')
+document.getElementById('addImmunizationBtn').addEventListener('click', () => {
+  document.getElementById('iDate').value = new Date().toISOString().split('T')[0]
+  iModal.style.display = 'flex'
+})
+document.getElementById('iCancel').addEventListener('click', () => iModal.style.display='none')
+document.getElementById('iSave').addEventListener('click', async () => {
+  const body = {
+    vaccine_name: document.getElementById('iVaccine').value,
+    date: document.getElementById('iDate').value,
+    next_due: document.getElementById('iNext').value||null,
+    notes: document.getElementById('iNotes').value
+  }
+  try {
+    await fetch(`/api/health/profiles/${currentProfileId}/immunizations`, {method:'POST',headers:{'Content-Type':'application/json','x-pin-token':pinToken},body:JSON.stringify(body)})
+    iModal.style.display='none'; loadImmunizations(currentProfileId)
+    document.getElementById('iVaccine').value=''; document.getElementById('iNext').value=''; document.getElementById('iNotes').value=''
+  } catch(e) { alert('Gagal simpan') }
+})
+
+// ── Growth Chart ─────────────────────────────────────────
+let growthSex = 'L'
+document.getElementById('growthSex').addEventListener('click', () => {
+  growthSex = growthSex==='L'?'P':'L'
+  document.getElementById('growthSex').textContent = growthSex==='L'?'Laki-laki':'Perempuan'
+  loadGrowth(currentProfileId)
+})
+
+async function loadGrowth(pid) {
+  const p = profiles.find(x=>x.id===pid)
+  if (!p || !p.birth_date) { document.getElementById('growthEmpty').classList.remove('hidden'); return }
+  const d = await fetchJSON(`/api/health/profiles/${pid}/measurements?type=weight`)
+  const weights = d.data.filter(r=>r.value).sort((a,b)=>a.date.localeCompare(b.date))
+  if (!weights.length) { document.getElementById('growthEmpty').classList.remove('hidden'); drawChart([], p.birth_date); return }
+  document.getElementById('growthEmpty').classList.add('hidden')
+  drawChart(weights, p.birth_date)
+}
+
+function drawChart(data, birthDate) {
+  const canvas = document.getElementById('growthCanvas')
+  const ctx = canvas.getContext('2d')
+  const W = 720, H = 400
+  const pad = {top:20, right:20, bottom:40, left:50}
+  const chartW = W - pad.left - pad.right
+  const chartH = H - pad.top - pad.bottom
+
+  ctx.clearRect(0,0,W,H)
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-canvas').trim() || '#0d1117'
+  ctx.fillRect(0,0,W,H)
+
+  // Compute months & weight values
+  const birth = new Date(birthDate)
+  const points = data.map(d => {
+    const dt = new Date(d.date); const m = (dt.getFullYear()-birth.getFullYear())*12 + (dt.getMonth()-birth.getMonth())
+    return {month:m, weight:parseFloat(d.value)}
+  }).filter(p => p.month>=0 && p.month<=60)
+
+  if (!points.length) {
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-muted').trim() || '#8b949e'
+    ctx.font = '14px sans-serif'; ctx.textAlign='center'; ctx.fillText('Data berat tidak tersedia', W/2, H/2)
+    return
+  }
+
+  const mArr = WHO.M, sArr = WHO.S
+  const maxMonth = Math.min(60, Math.max(...points.map(p=>p.month), 3))
+  const minMonth = Math.max(0, Math.min(...points.map(p=>p.month), 0))
+  const xRange = maxMonth - minMonth || 1
+
+  // compute y range with padding
+  const allYs = []
+  for (let z of [-3,-2,0,2,3]) for (let m=0; m<=maxMonth; m++) allYs.push(whoLine(m,z,mArr,sArr))
+  points.forEach(p=>allYs.push(p.weight))
+  const yMin = Math.max(0, Math.min(...allYs)-1)
+  const yMax = Math.max(...allYs)+2
+  const yRange = yMax-yMin || 1
+
+  function xPos(month) { return pad.left + ((month-minMonth)/xRange)*chartW }
+  function yPos(val) { return pad.top + chartH - ((val-yMin)/yRange)*chartH }
+
+  // Grid lines
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-border').trim() || '#30363d'
+  ctx.lineWidth = 0.5
+  for (let m=Math.ceil(minMonth/6)*6; m<=maxMonth; m+=6) {
+    ctx.beginPath(); ctx.moveTo(xPos(m),pad.top); ctx.lineTo(xPos(m),pad.top+chartH); ctx.stroke()
+  }
+  for (let y=Math.ceil(yMin/5)*5; y<=yMax; y+=5) {
+    ctx.beginPath(); ctx.moveTo(pad.left,yPos(y)); ctx.lineTo(pad.left+chartW,yPos(y)); ctx.stroke()
+  }
+
+  // WHO reference lines
+  const zLines = [
+    {z:3, color:'#f85149', dash:[]},
+    {z:2, color:'#d29922', dash:[6,3]},
+    {z:0, color:'#3fb950', dash:[]},
+    {z:-2, color:'#d29922', dash:[6,3]},
+    {z:-3, color:'#f85149', dash:[]}
+  ]
+  zLines.forEach(({z,color,dash}) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash(dash)
+    ctx.beginPath()
+    let first=true
+    for (let m=0; m<=maxMonth; m+=0.5) {
+      const v = whoLine(m,z,mArr,sArr)
+      const x = xPos(m), y = yPos(v)
+      if (first) { ctx.moveTo(x,y); first=false } else ctx.lineTo(x,y)
+    }
+    ctx.stroke()
+    ctx.setLineDash([])
+  })
+
+  // Data points & line
+  points.sort((a,b)=>a.month-b.month)
+  ctx.strokeStyle = '#1f6feb'; ctx.lineWidth = 2
+  ctx.beginPath()
+  points.forEach((p,i) => {
+    const x = xPos(p.month), y = yPos(p.weight)
+    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y)
+  })
+  ctx.stroke()
+
+  // Data dots
+  points.forEach(p => {
+    const x = xPos(p.month), y = yPos(p.weight)
+    ctx.fillStyle = '#1f6feb'; ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill()
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x,y,2,0,Math.PI*2); ctx.fill()
+  })
+
+  // Labels
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-muted').trim() || '#8b949e'
+  ctx.font = '11px sans-serif'; ctx.textAlign = 'center'
+  for (let m=Math.ceil(minMonth/12)*12; m<=maxMonth; m+=12) {
+    const label = Math.floor(m/12)+'y'
+    ctx.fillText(label, xPos(m), pad.top+chartH+18)
+  }
+  ctx.textAlign = 'right'
+  for (let y=Math.ceil(yMin/5)*5; y<=yMax; y+=5) {
+    ctx.fillText(y+'kg', pad.left-8, yPos(y)+4)
+  }
+
+  // Axis labels
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-muted').trim() || '#8b949e'
+  ctx.font = '11px sans-serif'; ctx.textAlign='center'
+  ctx.fillText('Usia', W/2, H-4)
+  ctx.save(); ctx.translate(12, pad.top+chartH/2); ctx.rotate(-Math.PI/2); ctx.fillText('Berat (kg)',0,0); ctx.restore()
+}
+</script>
+</body>
+</html>

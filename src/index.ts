@@ -1,22 +1,36 @@
 import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
 import { join } from 'node:path'
-import { createTables, seedDefaults, seedChecklists, seedStock, seedMemos } from './db/schema'
+import { createTables, seedDefaults, seedChecklists, seedStock, seedMemos, seedPin, seedHealth } from './db/schema'
 import { healthCheck } from './routes/health'
 import { broadcast, setServer } from './ws'
 import db from './db/db'
+import { createHash } from 'node:crypto'
+const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
+
+// PIN state
+const pinTokens = new Map<string, number>()
+const pinAttempts = new Map<string, { count: number; blockedUntil: number }>()
+function requirePin(ctx: any): boolean {
+  const token = ctx.request.headers.get('x-pin-token')
+  if (!token) return false
+  const expiry = pinTokens.get(token)
+  if (!expiry || Date.now() > expiry) { pinTokens.delete(token); return false }
+  return true
+}
 
 createTables()
 seedDefaults()
 seedChecklists()
 seedStock()
 seedMemos()
+seedPin()
+seedHealth()
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001
 
 const app = new Elysia()
   .use(cors())
-  .get('/api/health', () => healthCheck())
   .get('/api/status', () => ({
     uptime: process.uptime(),
     memory: process.memoryUsage(),
@@ -305,6 +319,131 @@ const app = new Elysia()
     broadcast({ type: 'stock', action: 'adjust', item: updated }, 'stock')
     return { data: updated }
   })
+
+  // ── PIN + Health ──────────────────────────────────────────
+
+  .post('/api/pin/verify', (ctx) => {
+    const ip = ctx.request.headers.get('x-forwarded-for') || 'local'
+    const now = Date.now()
+    const attempt = pinAttempts.get(ip) || { count: 0, blockedUntil: 0 }
+
+    if (now < attempt.blockedUntil) {
+      const remaining = Math.ceil((attempt.blockedUntil - now) / 1000)
+      return { success: false, error: `Terlalu banyak percobaan. Coba lagi dalam ${remaining} detik.`, blocked: true }
+    }
+
+    const { pin } = ctx.body as any
+    const storedHash = db.query("SELECT value FROM family_settings WHERE key = 'pin_hash'").get() as any
+    const valid = storedHash && sha256(String(pin || '')) === storedHash.value
+
+    if (!valid) {
+      attempt.count++
+      if (attempt.count >= 3) attempt.blockedUntil = now + 5 * 60 * 1000
+      pinAttempts.set(ip, attempt)
+      return { success: false, error: 'PIN salah', attempts_remaining: Math.max(0, 3 - attempt.count) }
+    }
+
+    // Reset attempts on success
+    pinAttempts.delete(ip)
+
+    // Generate token (valid 1 hour)
+    const token = sha256(`${ip}-${now}-${Math.random()}`)
+    pinTokens.set(token, now + 3600 * 1000)
+    return { success: true, token }
+  })
+
+  // ── Health Profiles ────────────────────────────────────────
+
+  .ws('/ws/health', {
+    open(ws) { ws.subscribe('health') },
+    message(ws, msg) { ws.send(msg) },
+  })
+
+  .get('/api/health/profiles', () => {
+    const profiles = db.query('SELECT * FROM health_profiles ORDER BY role ASC, id ASC').all() as any[]
+    const data = profiles.map((p) => {
+      const latestBP = db.query(
+        "SELECT systolic, diastolic, date, notes FROM health_measurements WHERE profile_id = ? AND type = 'bp' ORDER BY date DESC LIMIT 1"
+      ).get(p.id) as any
+      const latestWeight = db.query(
+        "SELECT value, date FROM health_measurements WHERE profile_id = ? AND type = 'weight' ORDER BY date DESC LIMIT 1"
+      ).get(p.id) as any
+      const latestHeight = db.query(
+        "SELECT value, date FROM health_measurements WHERE profile_id = ? AND type = 'height' ORDER BY date DESC LIMIT 1"
+      ).get(p.id) as any
+      return { ...p, latestBP, latestWeight, latestHeight }
+    })
+    return { data }
+  })
+
+  .post('/api/health/profiles', (ctx) => {
+    if (!requirePin(ctx)) return new Response('Unauthorized', { status: 401 })
+    const { name, role, birth_date, gender } = ctx.body as any
+    const r = db.run('INSERT INTO health_profiles (name, role, birth_date, gender) VALUES (?, ?, ?, ?)',
+      name, role, birth_date || null, gender || null)
+    const profile = db.query('SELECT * FROM health_profiles WHERE id = ?').get(r.lastInsertRowid)
+    broadcast({ type: 'health', action: 'create_profile', profile }, 'health')
+    return { data: profile }
+  })
+
+  .patch('/api/health/profiles/:id', (ctx) => {
+    if (!requirePin(ctx)) return new Response('Unauthorized', { status: 401 })
+    const id = ctx.params.id
+    const { name, birth_date, gender } = ctx.body as any
+    if (name !== undefined) db.run('UPDATE health_profiles SET name = ? WHERE id = ?', name, id)
+    if (birth_date !== undefined) db.run('UPDATE health_profiles SET birth_date = ? WHERE id = ?', birth_date, id)
+    if (gender !== undefined) db.run('UPDATE health_profiles SET gender = ? WHERE id = ?', gender, id)
+    const profile = db.query('SELECT * FROM health_profiles WHERE id = ?').get(id)
+    return { data: profile }
+  })
+
+  .delete('/api/health/profiles/:id', (ctx) => {
+    if (!requirePin(ctx)) return new Response('Unauthorized', { status: 401 })
+    db.run('DELETE FROM health_profiles WHERE id = ?', ctx.params.id)
+    return { success: true }
+  })
+
+  // ── Health Measurements ───────────────────────────────────
+
+  .get('/api/health/profiles/:id/measurements', (ctx) => {
+    const type = ctx.query.type || ''
+    const sql = type
+      ? 'SELECT * FROM health_measurements WHERE profile_id = ? AND type = ? ORDER BY date DESC, id DESC'
+      : 'SELECT * FROM health_measurements WHERE profile_id = ? ORDER BY date DESC, id DESC'
+    const data = type ? db.query(sql).all([ctx.params.id, type]) : db.query(sql).all([ctx.params.id])
+    return { data }
+  })
+
+  .post('/api/health/profiles/:id/measurements', (ctx) => {
+    if (!requirePin(ctx)) return new Response('Unauthorized', { status: 401 })
+    const { type, value, systolic, diastolic, date, notes } = ctx.body as any
+    const r = db.run(
+      'INSERT INTO health_measurements (profile_id, type, value, systolic, diastolic, date, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ctx.params.id, type, value || null, systolic || null, diastolic || null, date || new Date().toISOString().split('T')[0], notes || ''
+    )
+    const row = db.query('SELECT * FROM health_measurements WHERE id = ?').get(r.lastInsertRowid)
+    return { data: row }
+  })
+
+  // ── Immunizations ─────────────────────────────────────────
+
+  .get('/api/health/profiles/:id/immunizations', (ctx) => {
+    const data = db.query('SELECT * FROM immunizations WHERE profile_id = ? ORDER BY date DESC').all([ctx.params.id])
+    return { data }
+  })
+
+  .post('/api/health/profiles/:id/immunizations', (ctx) => {
+    if (!requirePin(ctx)) return new Response('Unauthorized', { status: 401 })
+    const { vaccine_name, date, next_due, notes } = ctx.body as any
+    const r = db.run(
+      'INSERT INTO immunizations (profile_id, vaccine_name, date, next_due, notes) VALUES (?, ?, ?, ?, ?)',
+      ctx.params.id, vaccine_name, date, next_due || null, notes || ''
+    )
+    const row = db.query('SELECT * FROM immunizations WHERE id = ?').get(r.lastInsertRowid)
+    return { data: row }
+  })
+
+  .get('/api/health', () => healthCheck())
 
   // ── Settings ────────────────────────────────────────────────
 
