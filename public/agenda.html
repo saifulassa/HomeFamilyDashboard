@@ -217,9 +217,10 @@
     function nextDays(n) {
       const days = []
       const now = new Date()
-      const wibToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      // start from yesterday
+      const wibStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
       for (let i = 0; i < n; i++) {
-        const d = new Date(wibToday)
+        const d = new Date(wibStart)
         d.setDate(d.getDate() + i)
         days.push(d)
       }
@@ -230,8 +231,16 @@
     const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
 
     function dayLabel(date) {
-      const isToday = date.toDateString() === new Date().toDateString()
-      return isToday ? 'Hari Ini' : DAY_NAMES[date.getDay()]
+      const today = new Date()
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+      const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1)
+      const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(tomorrowStart.getDate() + 1)
+      const lusaStart = new Date(todayStart); lusaStart.setDate(lusaStart.getDate() + 2)
+      if (date.toDateString() === todayStart.toDateString()) return 'Hari Ini'
+      if (date.toDateString() === yesterdayStart.toDateString()) return 'Kemarin'
+      if (date.toDateString() === tomorrowStart.toDateString()) return 'Besok'
+      if (date.toDateString() === lusaStart.toDateString()) return 'Lusa'
+      return DAY_NAMES[date.getDay()]
     }
 
     function dateLabel(date) {

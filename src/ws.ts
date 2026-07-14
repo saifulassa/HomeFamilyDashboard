@@ -6,7 +6,7 @@ export function setServer(s: Server) {
   bunServer = s
 }
 
-export function broadcast(msg: object) {
+export function broadcast(msg: object, topic = 'events') {
   if (!bunServer) return
-  bunServer.publish('events', JSON.stringify(msg))
+  bunServer.publish(topic, JSON.stringify(msg))
 }

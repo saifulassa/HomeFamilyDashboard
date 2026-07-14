@@ -275,6 +275,7 @@
         const module = card.dataset.module
         const label = MODULES.find(m => m.id === module)?.label || module
         if (module === 'agenda') { window.location.href = '/agenda.html'; return }
+        if (module === 'checklist') { window.location.href = '/checklist.html'; return }
         alert(`🔧 ${label} — coming soon di phase selanjutnya`)
       }
     })
