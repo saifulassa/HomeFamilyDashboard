@@ -274,7 +274,7 @@
       if (card) {
         const module = card.dataset.module
         const label = MODULES.find(m => m.id === module)?.label || module
-        // ponytail: replace with router/navigation in Phase 3
+        if (module === 'agenda') { window.location.href = '/agenda.html'; return }
         alert(`🔧 ${label} — coming soon di phase selanjutnya`)
       }
     })
